@@ -1,2 +1,6 @@
 angr
 angr-management
+logging
+pathlib
+typing 
+networkx
