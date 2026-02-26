@@ -4,3 +4,5 @@ logging
 pathlib
 typing 
 networkx
+pebble
+tqdm
