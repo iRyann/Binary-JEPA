@@ -1,26 +1,25 @@
-from src.masks.default import generate_block_mask
+import torch
 from src.models.jepa import IJEPA
+import src.masks.noiseproof as mask
+
 
 def main():
-    # model = IJEPA(vocab_size=5000, dim=256)
-    # optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    data = []
 
-    # for batch in dataloader:
-    #     input_ids = batch  # (B, L)
+    model = IJEPA(vocab_size=5000, dim=256) # obtenir la taille du vocab
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
-    #     mask = generate_block_mask(
-    #         batch_size=input_ids.size(0),
-    #         seq_len=input_ids.size(1),
-    #         block_size=32
-    #     )
+    for batch in data: # obtenir le jeu de données, sous quelle forme ?
 
-    #     loss = model(input_ids, mask)
+        input_mask, pred_mask = mask.generate(batch.shape[0])
 
-    #     optimizer.zero_grad()
-    #     loss.backward()
-    #     optimizer.step()
+        loss = model(batch,input_mask,pred_mask)
 
-    #     model._update_target_encoder()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        model._update_target_encoder()
 
 if __name__ == "__main__":
     main()

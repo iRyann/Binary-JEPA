@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from src.models.encoder import Conv1DEncoder
-from src.models.predictor import Conv1DEncoder
+from src.models.predictor import Predictor
 
 class IJEPA(nn.Module):
     def __init__(self, vocab_size, dim=256):
@@ -25,25 +25,27 @@ class IJEPA(nn.Module):
         ):
             param_k.data = m * param_k.data + (1 - m) * param_q.data
 
-    def forward(self, x, mask):
+    def forward(self, x: torch.Tensor, input_mask: torch.Tensor, pred_mask: torch.Tensor):
         """
-        x: (B, L)
-        mask: (B, L) masque pour occulter les blocs 2 et 3 (pré-cible et cible)
+        x: (batch_size, sequence_length) batch d'entrée
+        input_mask: (batch_size, sequence_length) masque pour occulter les blocs 2 et 3 (pré-cible et cible)
         """
-        x_masked = x.copy()
-        x_masked[mask] = IJEPA.MASK_TOKEN_ID
+
+        x_masked = x.copy_()
+        x_masked[input_mask] = IJEPA.MASK_TOKEN_ID
 
         z_context = self.context_encoder(x_masked)
         
         with torch.no_grad():
             z_target = self.target_encoder(x)
 
+        
         # prédiction des zones masquées uniquement
         z_pred = self.predictor(z_context)
 
         loss = F.mse_loss(
-            z_pred[mask],
-            z_target[mask]
+            z_pred[pred_mask],
+            z_target[pred_mask]
         )
 
         return loss
