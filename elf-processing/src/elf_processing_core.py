@@ -7,7 +7,7 @@ Dependances :
     angr networkx pebble
 
 Usage CLI :
-    python elf_processing_core.py dataset/ 8
+    python elf_processing_core.py dataset/ 8 output/
     # => traite tous les *.elf de dataset/ avec 8 workers, timeout 120s/binaire
     # => produit output/<stem>.jsonl par binaire
 """
@@ -391,10 +391,11 @@ if __name__ == "__main__":
     dataset_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("dataset")
     workers = int(sys.argv[2]) if len(sys.argv) > 2 else 4
     elf_paths = sorted(dataset_dir.glob("*.elf"))
+    output_dir = Path(sys.argv[3])
 
     process_dataset(
         elf_paths,
-        output_dir="output",
+        output_dir=output_dir,
         max_workers=workers,
         timeout_sec=120,
         max_paths=500,
