@@ -3,7 +3,7 @@
 > [!abstract]
 > Du programme en tant que tel, comme fichier ELF, à la sémantique instillée par l'auteur de ce dernier, et jusqu'à la représentation qu'il en est donnée dans un espace approprié pour le Machine Learning, la substance manipulée se voit constamment remisée par ces différentes _représentations_.
 > Derrière cet agrégat informationnel projeté dans des espaces divers se pose la question de la perte informationnelle -- et donc réciproquement de la conservation de celle-ci --, et de la fidélité à l'intention première matérialisée par le programme.
-> Ces interrogations sont évidemment au fondement de l'embedding de code binaire, ou l'apprentissage de représentations vectorielles pour l'analyse binaire, visant à transformer des séquences d'instructions non structurées en vecteurs numériques denses de faible dimension capturant leur sémantique.
+> Ces interrogations sont évidemment au fondement de l'embedding de code binaire, ou l'apprentissage de représentations vectorielles pour l'analyse binaire, visant à transformer des séquences d'instructions non structurées en vecteurs numériques denses de haute dimension capturant leur sémantique.
 
 ### Cartographie de la Représentation Binaire : De la Syntaxe à l'Espace Latent
 
