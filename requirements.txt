@@ -2,3 +2,4 @@ torch>=2.9.1
 tqdm
 argparse
 pyyaml
+codecarbon
