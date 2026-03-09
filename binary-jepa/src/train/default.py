@@ -1,19 +1,22 @@
-from torch.utils.data.dataloader import DataLoader
-import src.masks.noiseproof as mask
-from src.models.jepa import IJEPA
-from pathlib import Path
-from tqdm import tqdm
 import argparse
+import json
 import logging
+import sys
+from pathlib import Path
+
+import src.masks.noiseproof as mask
 import torch
 import yaml
-import json
-import sys
+from codecarbon import track_emissions
+from src.models.jepa import IJEPA
+from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-def load_config(config_path: str | Path) -> dict[str,str]:
+
+def load_config(config_path: str | Path) -> dict[str, str]:
     config_path = Path(config_path)
 
     if not config_path.exists():
@@ -21,7 +24,8 @@ def load_config(config_path: str | Path) -> dict[str,str]:
         sys.exit(1)
 
     with config_path.open("r") as f:
-        return yaml.load(f,Loader=yaml.SafeLoader)
+        return yaml.load(f, Loader=yaml.SafeLoader)
+
 
 def load_data(file_path: str | Path) -> list:
     file_path = Path(file_path)
@@ -35,30 +39,43 @@ def load_data(file_path: str | Path) -> list:
 
     return raw_data
 
-def main(config : dict[str,str]):
+
+@track_emissions()
+def main(config: dict[str, str]):
 
     dataset = load_data(config["train_data_path"])
 
-    model = IJEPA(vocab_size=5000, dim=256) # obtenir la taille du vocab
+    model = IJEPA(vocab_size=5000, dim=256)  # obtenir la taille du vocab
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
-    data = DataLoader(dataset, batch_size=10, shuffle=False, sampler=None,
-           batch_sampler=None, num_workers=1, collate_fn=None,
-           pin_memory=False, drop_last=False, timeout=0,
-           worker_init_fn=None, prefetch_factor=2,
-           persistent_workers=False)
+    data = DataLoader(
+        dataset,
+        batch_size=10,
+        shuffle=False,
+        sampler=None,
+        batch_sampler=None,
+        num_workers=1,
+        collate_fn=None,
+        pin_memory=False,
+        drop_last=False,
+        timeout=0,
+        worker_init_fn=None,
+        prefetch_factor=2,
+        persistent_workers=False,
+    )
 
-    for batch in tqdm(data): # obtenir le jeu de données, sous quelle forme ?
+    for batch in tqdm(data):  # obtenir le jeu de données, sous quelle forme ?
 
         input_mask, pred_mask = mask.generate(batch.shape[0])
 
-        loss = model(batch,input_mask,pred_mask)
+        loss = model(batch, input_mask, pred_mask)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         model._update_target_encoder()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
