@@ -15,6 +15,7 @@ import json
 import logging
 from collections import Counter
 from pathlib import Path
+import sys
 
 from tqdm import tqdm
 
@@ -67,12 +68,12 @@ def build_vocabulary(
 
     if not input_dir.exists() or not input_dir.is_dir():
         logger.error("Le dossier source '%s' n'existe pas.", input_dir)
-        return
+        sys.exit(1)
 
     jsonl_files = sorted(input_dir.glob("*.jsonl"))
     if not jsonl_files:
         logger.error("Aucun fichier .jsonl trouve dans '%s'.", input_dir)
-        return
+        sys.exit(1)
 
     logger.info("Scan de %d fichiers JSONL...", len(jsonl_files))
 
@@ -181,12 +182,12 @@ def encode_dataset(
 
     if not input_dir.exists() or not input_dir.is_dir():
         logger.error("Le dossier source '%s' n'existe pas.", input_dir)
-        return
+        sys.exit(1)
 
     jsonl_files = sorted(input_dir.glob("*.jsonl"))
     if not jsonl_files:
         logger.error("Aucun fichier .jsonl trouve dans '%s'.", input_dir)
-        return
+        sys.exit(1)
 
     logger.info("Scan de %d fichiers JSONL...", len(jsonl_files))
     for file_path in tqdm(jsonl_files, desc="Scanning JSONL", unit="file"):
@@ -212,6 +213,28 @@ def encode_dataset(
 
     if skipped_lines:
         logger.warning("%d lignes JSON invalides ignorees.", skipped_lines)
+
+# sauvegarder les séquences de token brutes
+def save_raw_data(encoded_data_dir: str | Path, raw_data_output_path: str | Path) -> list:
+    encoded_data_dir = Path(encoded_data_dir)
+    raw_data_output_path = Path(raw_data_output_path)
+
+    if not encoded_data_dir.is_dir():
+        logger.error("Le dossier %s n'existe pas", encoded_data_dir)
+        sys.exit(1)
+
+    raw_data = ""
+    jsonl_files = sorted(encoded_data_dir.glob("*.jsonl"))
+    for file_path in tqdm(jsonl_files, desc="Loading token sequences from JSONL", unit="file"):
+        with file_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    tokens = json.loads(line).get("tokens", [])
+                    raw_data += json.dumps(tokens) + ",\n"
+                except:
+                    continue
+    with open(raw_data_output_path,"w") as f:
+        f.write(f"[\n{raw_data[:-2]}\n]")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # POINT D'ENTREE
@@ -240,13 +263,20 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--with-vocab",
-        default=None,
+        type=str,
+        help="Encoder les tokens du jeu de données. Prend en entrée le vocabulaire utlisé pour l'encodage",
+    )
+    parser.add_argument(
+        "--save-raw",
         type=str,
         help="Encoder les tokens du jeu de données. Prend en entrée le vocabulaire utlisé pour l'encodage",
     )
 
     args = parser.parse_args()
+
     if args.with_vocab:
         encode_dataset(args.input_dir,"encoded_dataset",args.with_vocab)
+    elif args.save_raw:
+        save_raw_data(args.input_dir,args.save_raw)
     else:
         build_vocabulary(args.input_dir, args.out, args.min_freq)
