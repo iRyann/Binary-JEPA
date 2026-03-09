@@ -5,10 +5,10 @@ from src.models.encoder import Conv1DEncoder
 from src.models.predictor import Predictor
 
 class IJEPA(nn.Module):
+    MASK_TOKEN_ID = 2
     def __init__(self, vocab_size, dim=256):
         super().__init__()
 
-        MASK_TOKEN_ID = 2
         
         self.context_encoder = Conv1DEncoder(vocab_size, out_dim=dim)
         self.target_encoder = Conv1DEncoder(vocab_size, out_dim=dim)
