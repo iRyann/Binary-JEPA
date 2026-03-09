@@ -158,9 +158,60 @@ def encode_tokens(vocab_path : str | Path, tokens : list) -> list:
     encoded_unkown_token = vocab.get(UNKNOWN_TOKEN)
     encoded_tokens = []
     for token in tokens:
-        encode_tokens.append(vocab.get(token,encoded_unkown_token))
+        encoded_tokens.append(vocab.get(token,encoded_unkown_token))
     
     return encoded_tokens
+
+
+def encode_dataset(
+    input_dir: str | Path,
+    output_dir: str | Path,
+    vocab_path: str | Path,
+) -> None:
+    """
+    Args:
+        input_dir:  dossier contenant les shards *.jsonl.
+        output_dir: chemin des fichiers contenant les shards *.jsonl dont les tokens sont encodés selon le vocab d'entrée.
+        vocab_path: chemin d'accès vers le vocabulaire (vocab.json)
+    """
+    input_dir = Path(input_dir)
+    output_dir = Path(output_dir)
+    vocab_path = Path(vocab_path)
+    skipped_lines = 0
+
+    if not input_dir.exists() or not input_dir.is_dir():
+        logger.error("Le dossier source '%s' n'existe pas.", input_dir)
+        return
+
+    jsonl_files = sorted(input_dir.glob("*.jsonl"))
+    if not jsonl_files:
+        logger.error("Aucun fichier .jsonl trouve dans '%s'.", input_dir)
+        return
+
+    logger.info("Scan de %d fichiers JSONL...", len(jsonl_files))
+    for file_path in tqdm(jsonl_files, desc="Scanning JSONL", unit="file"):
+        encoded_file_lines = []
+        with file_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    line_as_json = json.loads(line)
+                    tokens = line_as_json.get("tokens", [])
+                    encoded_tokens = encode_tokens(vocab_path, tokens)
+                    line_as_json["tokens"] = encoded_tokens
+                    encoded_file_lines.append(json.dumps(line_as_json) + "\n")
+
+                except json.JSONDecodeError:
+                    skipped_lines += 1
+                    continue    
+        
+        if not output_dir.is_dir():
+            Path.mkdir(output_dir)
+        
+        with open(output_dir / file_path.name,"w") as out:
+            out.writelines(encoded_file_lines)
+
+    if skipped_lines:
+        logger.warning("%d lignes JSON invalides ignorees.", skipped_lines)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # POINT D'ENTREE
@@ -187,6 +238,15 @@ if __name__ == "__main__":
         default=2,
         help="Frequence minimale pour conserver un token (defaut : 2)",
     )
+    parser.add_argument(
+        "--with-vocab",
+        default=None,
+        type=str,
+        help="Encoder les tokens du jeu de données. Prend en entrée le vocabulaire utlisé pour l'encodage",
+    )
 
     args = parser.parse_args()
-    build_vocabulary(args.input_dir, args.out, args.min_freq)
+    if args.with_vocab:
+        encode_dataset(args.input_dir,"encoded_dataset",args.with_vocab)
+    else:
+        build_vocabulary(args.input_dir, args.out, args.min_freq)
