@@ -215,7 +215,13 @@ def encode_dataset(
         logger.warning("%d lignes JSON invalides ignorees.", skipped_lines)
 
 # sauvegarder les séquences de token brutes
-def save_raw_data(encoded_data_dir: str | Path, raw_data_output_path: str | Path) -> list:
+def save_raw_data(
+    encoded_data_dir: str | Path, 
+    raw_data_output_path: str | Path,
+    pad_token_id : int = 0, 
+    limit_sequence_length : int = 500
+    ) -> list:
+    
     encoded_data_dir = Path(encoded_data_dir)
     raw_data_output_path = Path(raw_data_output_path)
 
@@ -223,18 +229,41 @@ def save_raw_data(encoded_data_dir: str | Path, raw_data_output_path: str | Path
         logger.error("Le dossier %s n'existe pas", encoded_data_dir)
         sys.exit(1)
 
-    raw_data = ""
+    raw_data = []
     jsonl_files = sorted(encoded_data_dir.glob("*.jsonl"))
+
+    # obtention de la longueur de séquence max
+    max_len = 0
+    counter = 0
+    for file_path in tqdm(jsonl_files, desc="Checking the maximum size of a token sequence from JSONL", unit="file"):
+        with file_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    tokens = json.loads(line).get("tokens", [])
+                    max_len = max(max_len,len(tokens))
+                    counter += 1
+                except:
+                    continue
+
+    logger.info("The maximum size of a token sequence is found is %d",max_len,counter,max_len)
+    logger.warning("The maximumen sequence length found in the dataset (%d) exceeds the specified upper limit (%d), resulting in a truncation",max_len,limit_sequence_length)
+    max_len = min(max_len,limit_sequence_length)
+    logger.info("A dataset of %dx%d will be created",counter,max_len)
+
+    # extraction des simples séquences de token + padding
     for file_path in tqdm(jsonl_files, desc="Loading token sequences from JSONL", unit="file"):
         with file_path.open("r", encoding="utf-8") as f:
             for line in f:
                 try:
                     tokens = json.loads(line).get("tokens", [])
-                    raw_data += json.dumps(tokens) + ",\n"
+                    # injection du padding
+                    tokens = tokens[:max_len] + (max_len - len(tokens)) * [pad_token_id]
+                    raw_data.append(json.dumps(tokens) + ",\n")
                 except:
                     continue
+
     with open(raw_data_output_path,"w") as f:
-        f.write(f"[\n{raw_data[:-2]}\n]")
+        f.write(f'[\n{("".join(raw_data))[:-2]}\n]')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # POINT D'ENTREE
