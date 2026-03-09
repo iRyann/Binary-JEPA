@@ -44,12 +44,22 @@ def load_data(file_path: str | Path) -> list:
 def main(config: dict[str, str]):
 
     dataset = load_data(config["train_data_path"])
+    vocab = None
 
-    model = IJEPA(vocab_size=5000, dim=256)  # obtenir la taille du vocab
+    with open(config["vocab_path"],"r") as f:
+        try:
+            vocab = json.load(f)
+        except:
+            sys.exit(1)
+        
+    if not vocab:
+        sys.exit(1)
+
+    model = IJEPA(vocab_size=len(vocab), dim=256)  # obtenir la taille du vocab
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
     data = DataLoader(
-        dataset,
+        torch.Tensor(dataset).to(torch.int64),
         batch_size=10,
         shuffle=False,
         sampler=None,
@@ -64,9 +74,9 @@ def main(config: dict[str, str]):
         persistent_workers=False,
     )
 
-    for batch in tqdm(data):  # obtenir le jeu de données, sous quelle forme ?
+    for batch in tqdm(data,desc="training (1 epoch)", unit="batch"):  # obtenir le jeu de données, sous quelle forme ?
 
-        input_mask, pred_mask = mask.generate(batch.shape[0])
+        input_mask, pred_mask = mask.generate(batch,batch.shape[0])
 
         loss = model(batch, input_mask, pred_mask)
 

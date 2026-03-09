@@ -31,7 +31,7 @@ class IJEPA(nn.Module):
         input_mask: (batch_size, sequence_length) masque pour occulter les blocs 2 et 3 (pré-cible et cible)
         """
 
-        x_masked = x.copy_()
+        x_masked = torch.zeros_like(x).copy_(x)
         x_masked[input_mask] = IJEPA.MASK_TOKEN_ID
 
         z_context = self.context_encoder(x_masked)
@@ -39,7 +39,6 @@ class IJEPA(nn.Module):
         with torch.no_grad():
             z_target = self.target_encoder(x)
 
-        
         # prédiction des zones masquées uniquement
         z_pred = self.predictor(z_context)
 
