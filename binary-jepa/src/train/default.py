@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -8,11 +9,13 @@ import src.masks.noiseproof as mask
 import torch
 import yaml
 from codecarbon import track_emissions
+from networkx import connected_dominating_set
+from setuptools.discovery import ConfigDiscovery
 from src.models.jepa import IJEPA
+from src.utils.logging import AverageMeter, CSVLogger
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -43,16 +46,42 @@ def load_data(file_path: str | Path) -> list:
 @track_emissions()
 def main(config: dict[str, str]):
 
+    # -- Data
+    batch_size = int(config["batch_size"])
+
+    # -- Model logging
+    log_path = config["logging_path"]
+    load_path = (
+        None
+        if config.get("load_checkpoint") is None
+        else config["load_checkpoint_path"]
+    )  # TODO
+    checkpoint_freq = config["chechpoint_freq"]
+
+    # --- log/checkpoints path
+    log_file = os.path.join(log_path, "log.csv")
+    save_checkpoint_path = os.path.join(log_path, "ep{epoch}.pth.tar")
+    latest_path = os.path.join(log_path, "latest.pth.tar")
+
+    # --- CSV Logger
+    csv_logger = (
+        CSVLogger(log_file),
+        ("%d", "epoch"),
+        ("%d", "itr"),
+        ("%.5f", "loss"),
+        ("%d", "time (ms)"),
+    )
+
     dataset = load_data(config["train_data_path"])
     vocab = None
-    number_of_epoch = config.get("epoch",1)
+    number_of_epoch = config.get("epoch", 1)
 
-    with open(config["vocab_path"],"r") as f:
+    with open(config["vocab_path"], "r") as f:
         try:
             vocab = json.load(f)
         except:
             sys.exit(1)
-        
+
     if not vocab:
         sys.exit(1)
 
@@ -62,7 +91,7 @@ def main(config: dict[str, str]):
 
     data = DataLoader(
         torch.Tensor(dataset).to(torch.int64).to(device),
-        batch_size=10,
+        batch_size=batch_size,
         shuffle=False,
         sampler=None,
         batch_sampler=None,
@@ -81,14 +110,32 @@ def main(config: dict[str, str]):
         logger.info("\x1b[0;32mCUDA is available\x1b[0;0m")
     else:
         logger.info("\x1b[0;31mCUDA is NOT available\x1b[0;0m")
-    
-    logger.info("torch using device %s",torch.cuda.get_device_name(torch.cuda.current_device()))
 
+    logger.info(
+        "torch using device %s", torch.cuda.get_device_name(torch.cuda.current_device())
+    )
 
-    for i in tqdm(range(number_of_epoch),desc="training", unit="batch"):
-        for batch in tqdm(data,desc=f"training epoch {i+1}/{number_of_epoch}", unit="batch"):
+    def save_checkpoint(epoch):
+        save_dict = {
+            "encoder": model.context_encoder.state_dict(),
+            "predictor": model.predictor.state_dict(),
+            "target_encoder": model.target_encoder.state_dict(),
+            "opt": optimizer.state_dict(),
+            "epoch": epoch,
+            "loss": loss_meter.avg,
+            "batch_size": batch_size,
+        }
+        torch.save(save_dict, latest_path)
+        if (epoch + 1) % checkpoint_freq == 0:
+            torch.save(save_dict, save_checkpoint_path.format(epoch=f"{epoch + 1}"))
 
-            input_mask, pred_mask = mask.generate(batch,batch.shape[0])
+    for epoch in tqdm(range(number_of_epoch), desc="training", unit="batch"):
+        loss_meter = AverageMeter()
+        for batch in tqdm(
+            data, desc=f"training epoch {epoch+1}/{number_of_epoch}", unit="batch"
+        ):
+
+            input_mask, pred_mask = mask.generate(batch, batch.shape[0])
 
             loss = model(batch, input_mask, pred_mask)
 
@@ -97,6 +144,8 @@ def main(config: dict[str, str]):
             optimizer.step()
 
             model._update_target_encoder()
+
+        save_checkpoint(epoch + 1)  # TODO
 
 
 if __name__ == "__main__":
