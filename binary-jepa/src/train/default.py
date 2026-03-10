@@ -45,6 +45,7 @@ def main(config: dict[str, str]):
 
     dataset = load_data(config["train_data_path"])
     vocab = None
+    number_of_epoch = config.get("epoch",1)
 
     with open(config["vocab_path"],"r") as f:
         try:
@@ -55,11 +56,12 @@ def main(config: dict[str, str]):
     if not vocab:
         sys.exit(1)
 
-    model = IJEPA(vocab_size=len(vocab), dim=256)  # obtenir la taille du vocab
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model = IJEPA(vocab_size=len(vocab), dim=256).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
     data = DataLoader(
-        torch.Tensor(dataset).to(torch.int64),
+        torch.Tensor(dataset).to(torch.int64).to(device),
         batch_size=10,
         shuffle=False,
         sampler=None,
@@ -74,17 +76,27 @@ def main(config: dict[str, str]):
         persistent_workers=False,
     )
 
-    for batch in tqdm(data,desc="training (1 epoch)", unit="batch"):  # obtenir le jeu de données, sous quelle forme ?
+    # CUDA logging
+    if torch.cuda.is_available():
+        logger.info("\x1b[0;32mCUDA is available\x1b[0;0m")
+    else:
+        logger.info("\x1b[0;31mCUDA is NOT available\x1b[0;0m")
+    
+    logger.info("torch using device %s",torch.cuda.get_device_name(torch.cuda.current_device()))
 
-        input_mask, pred_mask = mask.generate(batch,batch.shape[0])
 
-        loss = model(batch, input_mask, pred_mask)
+    for i in tqdm(range(number_of_epoch),desc="training", unit="batch"):
+        for batch in tqdm(data,desc=f"training epoch {i+1}/{number_of_epoch}", unit="batch"):
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            input_mask, pred_mask = mask.generate(batch,batch.shape[0])
 
-        model._update_target_encoder()
+            loss = model(batch, input_mask, pred_mask)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            model._update_target_encoder()
 
 
 if __name__ == "__main__":
