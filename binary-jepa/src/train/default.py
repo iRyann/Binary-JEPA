@@ -3,16 +3,18 @@ import json
 import logging
 import sys
 from pathlib import Path
-
+import os
 import src.masks.noiseproof as mask
 import torch
 import yaml
 from codecarbon import track_emissions
+from networkx import connected_dominating_set
+from setuptools.discovery import ConfigDiscovery
 from src.models.jepa import IJEPA
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
+from src.utils.logging import CSVLogger, AverageMeter
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +45,22 @@ def load_data(file_path: str | Path) -> list:
 @track_emissions()
 def main(config: dict[str, str]):
 
+    #-- Data
+    batch_size = int(config["batch_size"])
+
+    #-- Model logging 
+    log_path = config["logging_path"]
+    load_path= None if config.get("load_checkpoint") is None else config["load_checkpoint_path"] #TODO
+    checkpoint_freq = config["chechpoint_freq"] 
+    
+    #--- log/checkpoints path
+    log_file = os.path.join(log_path,'log.csv')
+    save_checkpoint_path = os.path.join(log_path, 'ep{epoch}.pth.tar')
+    latest_path = os.path.join(log_path,'latest.pth.tar')
+
+    #--- CSV Logger
+    csv_logger = CSVLogger(log_file), ('%d', 'epoch'), ('%d', 'itr'), ('%.5f', 'loss'), ('%d', 'time (ms)')
+
     dataset = load_data(config["train_data_path"])
     vocab = None
 
@@ -60,7 +78,7 @@ def main(config: dict[str, str]):
 
     data = DataLoader(
         torch.Tensor(dataset).to(torch.int64),
-        batch_size=10,
+        batch_size=batch_size,
         shuffle=False,
         sampler=None,
         batch_sampler=None,
@@ -74,6 +92,23 @@ def main(config: dict[str, str]):
         persistent_workers=False,
     )
 
+    def save_checkpoint(epoch):
+        save_dict = {
+            'encoder': model.context_encoder.state_dict(),
+            'predictor': model.predictor.state_dict(),
+            'target_encoder': model.target_encoder.state_dict(),
+            'opt': optimizer.state_dict(),
+            'epoch': epoch,
+            'loss': loss_meter.avg,
+            'batch_size': batch_size,
+        }
+        torch.save(save_dict, latest_path)
+        if (epoch + 1) % checkpoint_freq == 0:
+            torch.save(save_dict, save_checkpoint_path.format(epoch=f'{epoch + 1}'))
+
+    loss_meter = AverageMeter() #TODO : Encapsuler dans la boucle d'entraînement
+    epoch = 0 
+
     for batch in tqdm(data,desc="training (1 epoch)", unit="batch"):  # obtenir le jeu de données, sous quelle forme ?
 
         input_mask, pred_mask = mask.generate(batch,batch.shape[0])
@@ -86,6 +121,7 @@ def main(config: dict[str, str]):
 
         model._update_target_encoder()
 
+    save_checkpoint(epoch+1) #TODO
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
