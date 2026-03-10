@@ -13,9 +13,9 @@ Usage :
 import argparse
 import json
 import logging
+import sys
 from collections import Counter
 from pathlib import Path
-import sys
 
 from tqdm import tqdm
 
@@ -142,13 +142,23 @@ def build_vocabulary(
     logger.info("Sauvegarde -> %s", output_vocab_path)
 
 
-def encode_tokens(vocab_path : str | Path, tokens : list) -> list:
+def encode_tokens(vocab_path: str | Path, tokens: list) -> list:
+    """[TODO:summary]
+
+    [TODO:description]
+
+    Args:
+        vocab_path: [TODO:description]
+        tokens: [TODO:description]
+
+    Returns:
+        [TODO:description]
+    """
     vocab_path = Path(vocab_path)
     vocab = None
 
     if not vocab_path.exists():
         logger.error("Le fichier %s n'existe pas", vocab_path)
-
 
     with vocab_path.open("r") as f:
         vocab = json.load(f)
@@ -159,8 +169,8 @@ def encode_tokens(vocab_path : str | Path, tokens : list) -> list:
     encoded_unkown_token = vocab.get(UNKNOWN_TOKEN)
     encoded_tokens = []
     for token in tokens:
-        encoded_tokens.append(vocab.get(token,encoded_unkown_token))
-    
+        encoded_tokens.append(vocab.get(token, encoded_unkown_token))
+
     return encoded_tokens
 
 
@@ -170,10 +180,14 @@ def encode_dataset(
     vocab_path: str | Path,
 ) -> None:
     """
+    Tokenise le dataset au gré du vocabulaire spécifié.
+
     Args:
         input_dir:  dossier contenant les shards *.jsonl.
         output_dir: chemin des fichiers contenant les shards *.jsonl dont les tokens sont encodés selon le vocab d'entrée.
         vocab_path: chemin d'accès vers le vocabulaire (vocab.json)
+    Returns:
+       Données `input_dir` tokenisées vers `output_dir` selon le vocabulaire `vocab_path`.
     """
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
@@ -203,25 +217,37 @@ def encode_dataset(
 
                 except json.JSONDecodeError:
                     skipped_lines += 1
-                    continue    
-        
+                    continue
+
         if not output_dir.is_dir():
             Path.mkdir(output_dir)
-        
-        with open(output_dir / file_path.name,"w") as out:
+
+        with open(output_dir / file_path.name, "w") as out:
             out.writelines(encoded_file_lines)
 
     if skipped_lines:
         logger.warning("%d lignes JSON invalides ignorees.", skipped_lines)
 
-# sauvegarder les séquences de token brutes
+
 def save_raw_data(
-    encoded_data_dir: str | Path, 
+    encoded_data_dir: str | Path,
     raw_data_output_path: str | Path,
-    pad_token_id : int = 0, 
-    limit_sequence_length : int = 500
-    ) -> list:
-    
+    pad_token_id: int = 0,
+    limit_sequence_length: int = 500,
+) -> list:
+    """
+    Permet de sauvegarder les séqences de token brutes.
+
+    Args:
+        encoded_data_dir: Chemin vers les données encodées.
+        raw_data_output_path: Chemin vers les données sérialisées désiré.
+        pad_token_id: Id du token de padding selon l'encodage.
+        limit_sequence_length: Limite de taille des séquences.
+
+    Returns:
+       Sérialise les données `encoded_data_dir` en `raw_data_output_path`.
+    """
+
     encoded_data_dir = Path(encoded_data_dir)
     raw_data_output_path = Path(raw_data_output_path)
 
@@ -235,23 +261,35 @@ def save_raw_data(
     # obtention de la longueur de séquence max
     max_len = 0
     counter = 0
-    for file_path in tqdm(jsonl_files, desc="Checking the maximum size of a token sequence from JSONL", unit="file"):
+    for file_path in tqdm(
+        jsonl_files,
+        desc="Checking the maximum size of a token sequence from JSONL",
+        unit="file",
+    ):
         with file_path.open("r", encoding="utf-8") as f:
             for line in f:
                 try:
                     tokens = json.loads(line).get("tokens", [])
-                    max_len = max(max_len,len(tokens))
+                    max_len = max(max_len, len(tokens))
                     counter += 1
                 except:
                     continue
 
-    logger.info("The maximum size of a token sequence is found is %d",max_len,counter,max_len)
-    logger.warning("The maximumen sequence length found in the dataset (%d) exceeds the specified upper limit (%d), resulting in a truncation",max_len,limit_sequence_length)
-    max_len = min(max_len,limit_sequence_length)
-    logger.info("A dataset of %dx%d will be created",counter,max_len)
+    logger.info(
+        "The maximum size of a token sequence is found is %d", max_len, counter, max_len
+    )
+    logger.warning(
+        "The maximumen sequence length found in the dataset (%d) exceeds the specified upper limit (%d), resulting in a truncation",
+        max_len,
+        limit_sequence_length,
+    )
+    max_len = min(max_len, limit_sequence_length)
+    logger.info("A dataset of %dx%d will be created", counter, max_len)
 
     # extraction des simples séquences de token + padding
-    for file_path in tqdm(jsonl_files, desc="Loading token sequences from JSONL", unit="file"):
+    for file_path in tqdm(
+        jsonl_files, desc="Loading token sequences from JSONL", unit="file"
+    ):
         with file_path.open("r", encoding="utf-8") as f:
             for line in f:
                 try:
@@ -262,8 +300,9 @@ def save_raw_data(
                 except:
                     continue
 
-    with open(raw_data_output_path,"w") as f:
+    with open(raw_data_output_path, "w") as f:
         f.write(f'[\n{("".join(raw_data))[:-2]}\n]')
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # POINT D'ENTREE
@@ -304,8 +343,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.with_vocab:
-        encode_dataset(args.input_dir,"encoded_dataset",args.with_vocab)
+        encode_dataset(args.input_dir, "encoded_dataset", args.with_vocab)
     elif args.save_raw:
-        save_raw_data(args.input_dir,args.save_raw)
+        save_raw_data(args.input_dir, args.save_raw)
     else:
         build_vocabulary(args.input_dir, args.out, args.min_freq)
