@@ -13,13 +13,11 @@ def generate(
 
     for i in range(batch_size):
         # tiers 2 et 3 masqués en entrée
-        start = (real_lengths[i] * 1)//3
+        start = real_lengths[i]//3
         end = real_lengths[i]
         input_mask[i,start:end] = True
 
         start = (real_lengths[i] * 2)//3
         pred_mask[i,start:end] = True
-        
-        # Masquer uniquement la partie réelle
-    
+            
     return input_mask,pred_mask

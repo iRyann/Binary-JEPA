@@ -10,7 +10,7 @@ import src.masks.noiseproof as mask
 import torch
 import yaml
 from src.models.jepa import IJEPA
-from src.utils.logging import AverageMeter, CSVLogger
+from src.utils._logging import AverageMeter, CSVLogger
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
@@ -178,7 +178,7 @@ def main(config: dict):
             torch.save(save_dict, str(save_checkpoint_path).format(epoch=epoch + 1))
 
     # ── Boucle d'entraînement ─────────────────────────────────────────────────
-    epoch_offset = checkpoint["epoch"] if checkpoint else 0
+    epoch_offset = checkpoint["epoch"] if use_checkpoint else 0
 
     for epoch in tqdm(range(number_of_epoch), desc="Entraînement", unit="epoch"):
         loss_meter.reset()
@@ -200,6 +200,7 @@ def main(config: dict):
             model._update_target_encoder()
 
         absolute_epoch = epoch_offset + epoch
+        
         logger.info(
             "Époque %d terminée. Loss moyenne : %.4f",
             absolute_epoch + 1,

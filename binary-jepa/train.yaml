@@ -1,6 +1,6 @@
 train_data_path: raw_data500.json
 vocab_path: vocab.json
-epoch: 1
+epoch: 5
 batch_size: 10
-use_checkpoint: true
+use_checkpoint: false
 checkpoint_path: latest.pt
