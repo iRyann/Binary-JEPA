@@ -64,13 +64,7 @@ def main(config: dict[str, str]):
     latest_path = os.path.join(log_path, "latest.pth.tar")
 
     # --- CSV Logger
-    csv_logger = (
-        CSVLogger(log_file),
-        ("%d", "epoch"),
-        ("%d", "itr"),
-        ("%.5f", "loss"),
-        ("%d", "time (ms)"),
-    )
+    csv_logger = CSVLogger(log_file, ("%d", "epoch"), ("%d", "itr"), ("%.5f", "loss"))
 
     dataset = load_data(config["train_data_path"])
     vocab = None
@@ -129,15 +123,18 @@ def main(config: dict[str, str]):
         if (epoch + 1) % checkpoint_freq == 0:
             torch.save(save_dict, save_checkpoint_path.format(epoch=f"{epoch + 1}"))
 
-    for epoch in tqdm(range(number_of_epoch), desc="training", unit="batch"):
-        loss_meter = AverageMeter()
+    loss_meter = AverageMeter()
+    for epoch in tqdm(range(number_of_epoch), desc="Global Training", unit="epoch"):
+        loss_meter.reset()
+
         for batch in tqdm(
-            data, desc=f"training epoch {epoch+1}/{number_of_epoch}", unit="batch"
+            data, desc=f"Epoch {epoch+1}/{number_of_epoch}", unit="batch", leave=False
         ):
 
             input_mask, pred_mask = mask.generate(batch, batch.shape[0])
 
             loss = model(batch, input_mask, pred_mask)
+            loss_meter.update(loss.item(), batch.size(0))
 
             optimizer.zero_grad()
             loss.backward()
@@ -145,7 +142,8 @@ def main(config: dict[str, str]):
 
             model._update_target_encoder()
 
-        save_checkpoint(epoch + 1)  # TODO
+        logger.info(f"Époque {epoch} terminée. Loss Moyenne : {loss_meter.avg:.4f}")
+        save_checkpoint(epoch + 1)
 
 
 if __name__ == "__main__":
