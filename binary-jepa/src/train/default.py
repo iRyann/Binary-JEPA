@@ -9,6 +9,7 @@ from pathlib import Path
 import src.masks.noiseproof as mask
 import torch
 import yaml
+from codecarbon import track_emissions
 from src.models.jepa import IJEPA
 from src.utils.logging import AverageMeter, CSVLogger
 from torch.utils.data.dataloader import DataLoader
@@ -26,6 +27,7 @@ DEFAULT_LEARNING_RATE = 1e-4
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_run_id(config: dict) -> str:
     """
@@ -70,43 +72,45 @@ def load_data(file_path: str | Path) -> list:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
+@track_emissions(save_to_api=True)
 def main(config: dict):
 
     # ── Run ID & chemins ──────────────────────────────────────────────────────
     run_id = make_run_id(config)
 
-    base_dir      = Path(config.get("output_path", DEFAULT_OUTPUT_DIR))
-    logs_dir      = base_dir / "logs"
-    checkpts_dir  = base_dir / "checkpoints" / run_id
+    base_dir = Path(config.get("output_path", DEFAULT_OUTPUT_DIR))
+    logs_dir = base_dir / "logs"
+    checkpts_dir = base_dir / "checkpoints" / run_id
 
     logs_dir.mkdir(parents=True, exist_ok=True)
     checkpts_dir.mkdir(parents=True, exist_ok=True)
 
-    log_file            = logs_dir      / f"{run_id}.csv"
+    log_file = logs_dir / f"{run_id}.csv"
     save_checkpoint_path = checkpts_dir / "ep{epoch}.pt"
-    latest_path         = checkpts_dir  / "latest.pt"
+    latest_path = checkpts_dir / "latest.pt"
 
     logger.info("Run ID        : %s", run_id)
     logger.info("Log CSV       : %s", log_file)
     logger.info("Checkpoints   : %s", checkpts_dir)
 
     # ── Config ────────────────────────────────────────────────────────────────
-    batch_size      = int(config.get("batch_size", DEFAULT_BATCH_SIZE))
+    batch_size = int(config.get("batch_size", DEFAULT_BATCH_SIZE))
     checkpoint_path = config.get("checkpoint_path", "")
-    use_checkpoint  = config.get("use_checkpoint", False)
+    use_checkpoint = config.get("use_checkpoint", False)
     checkpoint_freq = config.get("checkpoint_freq", DEFAULT_CHECKPOINT_FREQ)
     number_of_epoch = config.get("epoch", DEFAULT_NUMBER_OF_EPOCH)
 
     # ── CSV Logger ────────────────────────────────────────────────────────────
     csv_logger = CSVLogger(
         str(log_file),
-        ("%d",   "epoch"),
+        ("%d", "epoch"),
         ("%.5f", "loss"),
     )
 
     # ── Data ──────────────────────────────────────────────────────────────────
     dataset = load_data(config.get("train_data_path", DEFAULT_TRAIN_DATA_PATH))
-    vocab   = None
+    vocab = None
 
     with open(config.get("vocab_path", DEFAULT_VOCAB_PATH), "r") as f:
         try:
@@ -121,7 +125,7 @@ def main(config: dict):
 
     # ── Device & Model ────────────────────────────────────────────────────────
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model  = IJEPA(vocab_size=len(vocab), dim=256).to(device)
+    model = IJEPA(vocab_size=len(vocab), dim=256).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config.get("learning_rate", DEFAULT_LEARNING_RATE)),
@@ -154,8 +158,10 @@ def main(config: dict):
 
     # ── CUDA info ─────────────────────────────────────────────────────────────
     if torch.cuda.is_available():
-        logger.info("\x1b[0;32mCUDA disponible : %s\x1b[0;0m",
-                    torch.cuda.get_device_name(torch.cuda.current_device()))
+        logger.info(
+            "\x1b[0;32mCUDA disponible : %s\x1b[0;0m",
+            torch.cuda.get_device_name(torch.cuda.current_device()),
+        )
     else:
         logger.info("\x1b[0;31mCUDA non disponible — CPU utilisé\x1b[0;0m")
 
@@ -164,14 +170,14 @@ def main(config: dict):
 
     def save_checkpoint(epoch: int):
         save_dict = {
-            "encoder":        model.context_encoder.state_dict(),
-            "predictor":      model.predictor.state_dict(),
+            "encoder": model.context_encoder.state_dict(),
+            "predictor": model.predictor.state_dict(),
             "target_encoder": model.target_encoder.state_dict(),
-            "opt":            optimizer.state_dict(),
-            "epoch":          epoch,
-            "loss":           loss_meter.avg,
-            "batch_size":     batch_size,
-            "run_id":         run_id, #  traçabilité dans le checkpoint
+            "opt": optimizer.state_dict(),
+            "epoch": epoch,
+            "loss": loss_meter.avg,
+            "batch_size": batch_size,
+            "run_id": run_id,  #  traçabilité dans le checkpoint
         }
         torch.save(save_dict, latest_path)
         if (epoch + 1) % checkpoint_freq == 0:
@@ -214,9 +220,7 @@ def main(config: dict):
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Pipeline d'entraînement IJEPA"
-    )
+    parser = argparse.ArgumentParser(description="Pipeline d'entraînement IJEPA")
     parser.add_argument(
         "--config_path",
         type=str,
