@@ -222,4 +222,5 @@ __marimo__/
 
 # data
 **/raw_data*.json
-
+**/*.pt
+**/log.csv
