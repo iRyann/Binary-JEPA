@@ -276,14 +276,16 @@ def save_raw_data(
                     continue
 
     logger.info(
-        "The maximum size of a token sequence is found is %d", max_len, counter, max_len
+        "The maximum size of a token sequence is found is %d", max_len,
     )
-    logger.warning(
-        "The maximumen sequence length found in the dataset (%d) exceeds the specified upper limit (%d), resulting in a truncation",
-        max_len,
-        limit_sequence_length,
-    )
-    max_len = min(max_len, limit_sequence_length)
+    if max_len > limit_sequence_length :
+        logger.warning(
+            "The maximumen sequence length found in the dataset (%d) exceeds the specified upper limit (%d), resulting in a truncation",
+            max_len,
+            limit_sequence_length,
+        )
+        max_len = limit_sequence_length
+
     logger.info("A dataset of %dx%d will be created", counter, max_len)
 
     # extraction des simples séquences de token + padding
