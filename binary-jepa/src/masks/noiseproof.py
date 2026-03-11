@@ -4,7 +4,7 @@ from src.models.jepa import IJEPA
 def generate(
         x, 
         batch_size : int,
-        pad_token_id: int = IJEPA.MASK_TOKEN_ID
+        pad_token_id: int = IJEPA.PAD_TOKEN_ID
              ) -> tuple[torch.Tensor,torch.Tensor]:
     real_lengths = (x != pad_token_id).sum(dim=1)
 
