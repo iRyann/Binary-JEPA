@@ -24,6 +24,7 @@ DEFAULT_TRAIN_DATA_PATH = "raw_data.json"
 DEFAULT_VOCAB_PATH = "vocab.json"
 DEFAULT_LEARNING_RATE = 1e-4
 
+
 def load_config(config_path: str | Path) -> dict[str, str]:
     config_path = Path(config_path)
 
@@ -52,15 +53,16 @@ def load_data(file_path: str | Path) -> list:
 def main(config: dict[str, str]):
 
     # -- Data
-    batch_size = int(config.get("batch_size",DEFAULT_BATCH_SIZE))
-    checkpoint_path = config.get("checkpoint_path","")
-    use_checkpoint = config.get("use_checkpoint",False)
+    batch_size = int(config.get("batch_size", DEFAULT_BATCH_SIZE))
+    checkpoint_path = config.get("checkpoint_path", "")
+    use_checkpoint = config.get("use_checkpoint", False)
 
     # -- Model logging
-    output_dir = config.get("output_path",DEFAULT_OUTPUT_DIR)
-    if not os.path.isdir(output_dir):   os.mkdir(output_dir)        
+    output_dir = config.get("output_path", DEFAULT_OUTPUT_DIR)
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
 
-    checkpoint_freq = config.get("checkpoint_freq",DEFAULT_CHECKPOINT_FREQ)
+    checkpoint_freq = config.get("checkpoint_freq", DEFAULT_CHECKPOINT_FREQ)
 
     # --- log/checkpoints path
     log_file = os.path.join(output_dir, "log.csv")
@@ -68,16 +70,13 @@ def main(config: dict[str, str]):
     latest_path = os.path.join(output_dir, "latest.pt")
 
     # --- CSV Logger
-<<<<<<< HEAD
-=======
     csv_logger = CSVLogger(log_file, ("%d", "epoch"), ("%.5f", "loss"))
->>>>>>> 63d71cbe4bbfc2d10a6624fa1a816dd0f898e8f6
 
-    dataset = load_data(config.get("train_data_path",DEFAULT_TRAIN_DATA_PATH))
+    dataset = load_data(config.get("train_data_path", DEFAULT_TRAIN_DATA_PATH))
     vocab = None
     number_of_epoch = config.get("epoch", DEFAULT_NUMBER_OF_EPOCH)
 
-    with open(config.get("vocab_path",DEFAULT_VOCAB_PATH), "r") as f:
+    with open(config.get("vocab_path", DEFAULT_VOCAB_PATH), "r") as f:
         try:
             vocab = json.load(f)
         except:
@@ -88,20 +87,21 @@ def main(config: dict[str, str]):
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = IJEPA(vocab_size=len(vocab), dim=256).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=float(config.get("learning_rate",DEFAULT_LEARNING_RATE)))
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=float(config.get("learning_rate", DEFAULT_LEARNING_RATE))
+    )
 
     # chargement du checkpoint
     if use_checkpoint and os.path.isfile(checkpoint_path):
         print(f"Loading checkpoint '{checkpoint_path}'")
-        with open(checkpoint_path,"rb") as f:
+        with open(checkpoint_path, "rb") as f:
             checkpoint = torch.load(f)
-        
+
         model.context_encoder.load_state_dict(checkpoint["encoder"])
         model.target_encoder.load_state_dict(checkpoint["target_encoder"])
         model.predictor.load_state_dict(checkpoint["predictor"])
         optimizer.load_state_dict(checkpoint["opt"])
         print("Loading successful")
-        
 
     data = DataLoader(
         torch.Tensor(dataset).to(torch.int64).to(device),
@@ -143,13 +143,10 @@ def main(config: dict[str, str]):
         if (epoch + 1) % checkpoint_freq == 0:
             torch.save(save_dict, save_checkpoint_path.format(epoch=f"{epoch + 1}"))
 
-<<<<<<< HEAD
     loss_meter = AverageMeter()
     for epoch in tqdm(range(number_of_epoch), desc="Global Training", unit="epoch"):
         loss_meter.reset()
 
-=======
->>>>>>> 63d71cbe4bbfc2d10a6624fa1a816dd0f898e8f6
         for batch in tqdm(
             data, desc=f"Epoch {epoch+1}/{number_of_epoch}", unit="batch", leave=False
         ):
@@ -165,13 +162,12 @@ def main(config: dict[str, str]):
 
             model._update_target_encoder()
 
-<<<<<<< HEAD
-=======
         absolute_epoch = epoch + checkpoint["epoch"] if checkpoint else epoch
-        logger.info(f"Époque {absolute_epoch} terminée. Loss Moyenne : {loss_meter.avg:.4f}")
-        csv_logger.log(absolute_epoch + 1 , loss_meter.avg)
+        logger.info(
+            f"Époque {absolute_epoch} terminée. Loss Moyenne : {loss_meter.avg:.4f}"
+        )
+        csv_logger.log(absolute_epoch + 1, loss_meter.avg)
         save_checkpoint(absolute_epoch)
->>>>>>> 63d71cbe4bbfc2d10a6624fa1a816dd0f898e8f6
 
 
 if __name__ == "__main__":
