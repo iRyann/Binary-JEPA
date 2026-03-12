@@ -1,8 +1,3 @@
-### 3. État de l'Art (Related Work)
-
-- **Représentation binaire :** Mentionner les anciens travaux (Assembly to Vec, SAFE) et les travaux basés sur les graphes (GNN, Asteria). Expliquer pourquoi les GNN sont trop lourds ($O(N^2)$).
-- **Modèles de fondation :** Parler de BERT/RoBERTa appliqués au code, puis introduire la théorie mathématique de Yann LeCun sur les architectures conjointes (JEPA) pour contrer "l'effondrement de représentation" et éviter d'apprendre des pixels/bruits aléatoires.
-
 ### 4. Méthodologie (Le Cœur Technique)
 
 C'est ici que vous décrivez votre pipeline en deux grandes sous-sections.
