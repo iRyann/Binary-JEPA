@@ -1,20 +1,3 @@
-### 1. Abstract (Résumé)
-
-- **Le contexte :** L'analyse de malwares nécessite de comparer des binaires (BCSD), mais l'obfuscation (junk code) rend les approches classiques obsolètes.
-- **Le problème :** Les réseaux de graphes (GNN) sont trop lents, et les approches génératives (LLM/BERT) se perdent dans la prédiction de bruit.
-- **La solution :** Vous proposez une architecture basée sur I-JEPA et la représentation _Bag-of-Paths_ sur du VEX IR.
-- **Le résultat :** Un encodeur sémantique robuste, entraîné de manière auto-supervisée, et optimisé MLOps (avec suivi d'empreinte carbone).
-
-### 2. Introduction
-
-- **Le contexte global :** L'explosion du nombre de malwares et la nécessité d'automatiser l'analyse statique.
-- **Les limites actuelles :** Expliquer brièvement pourquoi l'assembleur brut ou la structure du graphe de contrôle (CFG) sont fragiles face aux mutations d'un compilateur.
-- **La contribution du papier (Vos "Claims") :**
-
-1. Une méthode de levage sémantique (VEX) filtrant le bruit système (PLT/libc).
-2. L'adaptation d'I-JEPA pour des séquences d'instructions (Conv1D) remplaçant la prédiction générative.
-3. Une architecture d'entraînement MLOps industrielle éco-conçue (CodeCarbon).
-
 ### 3. État de l'Art (Related Work)
 
 - **Représentation binaire :** Mentionner les anciens travaux (Assembly to Vec, SAFE) et les travaux basés sur les graphes (GNN, Asteria). Expliquer pourquoi les GNN sont trop lourds ($O(N^2)$).
