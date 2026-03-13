@@ -87,10 +87,10 @@ def main(config: dict):
         str(log_file),
         ("%d", "index1"),
         ("%d", "index2"),
-        ("%f", "unlikeliness"),
-        ("%f", "similarity"),
-        ("%f", "distance"),
-        ("%f", "dot product"),
+        ("%.2f", "unlikeliness"),
+        ("%.2f", "similarity"),
+        ("%.2f", "distance"),
+        ("%.2f", "dot product"),
     )
 
     # ── Data ──────────────────────────────────────────────────────────────────
