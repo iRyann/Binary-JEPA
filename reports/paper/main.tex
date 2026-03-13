@@ -11,13 +11,25 @@
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
 \usepackage{palatino}
-\usepackage{cleveref}       % smart cross-referencing
 \usepackage{lipsum}         % Can be removed after putting your text content
 \usepackage{graphicx}
 \usepackage{cite}
 \usepackage{doi}
 \usepackage[toc,acronyms,nonumberlist]{glossaries}
 
+%-------------------
+% environnement, théorèmes et exercices
+%-------------------
+\usepackage{thmbox}%pour les jolis thm
+\newenvironment{definition}[1]{%
+  \vspace*{0.5cm}
+  \thmbox[M]{\textbf{Définition:} #1}%
+  \hspace*{1.5em}\slshape\ignorespaces%
+  }
+  {%
+  \endthmbox\vspace*{1ex}%
+  }
+ 
 % --- IMPORTS REQUIS POUR LES SCHÉMAS TIKZ ---
 \usepackage{tikz}
 \usetikzlibrary{positioning} % Indispensable pour "right=of", "below=of"
@@ -40,7 +52,7 @@
 \definecolor{colPad}{HTML}{6B7280}   % gris  — padding
 \definecolor{colLoss}{HTML}{8B5CF6}  % violet — perte
 
-
+\usepackage{cleveref}       % smart cross-referencing
 %----------- Paper Config ---------
 \title{Hachage Sémantique de Binaires par Apprentissage Auto-Supervisé : \emph{Binary-JEPA}, Une Approche JEPA sur Bag-of-Paths VEX}
 
