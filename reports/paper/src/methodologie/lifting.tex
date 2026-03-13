@@ -1,0 +1,70 @@
+\subsection{Extraction et Représentation des Données}\label{sub:Extraction et Représentation des Données} % (fold)
+La première étape de notre architecture consiste à transformer le code binaire brut en une représentation mathématique discrète, apte à être ingérée par un modèle de Deep Learning, tout en filtrant le bruit syntaxique induit par la compilation. Pour ce faire, nous proposons un pipeline d'extraction statique en trois phases : le levage sémantique (\textit{lifting}), l'échantillonnage topologique en \textit{Bag-of-Paths}, et la projection par canonicalisation.
+
+\subsubsection{Levage Sémantique et Extraction du CFG}
+Étant donné un fichier binaire exécutable $\mathcal{B}$, nous utilisons le framework d'analyse binaire \textit{angr} pour désassembler et lever les instructions assembleur (x86, ARM, etc.) vers la représentation intermédiaire VEX IR. Cette étape permet de s'abstraire totalement des spécificités du matériel (registres physiques, drapeaux d'état) pour se concentrer sur les macro-opérations logiques. 
+Pour chaque fonction $f \in \mathcal{B}$ (à l'exclusion des appels systèmes et des fonctions de bibliothèques externes résolues dynamiquement), nous extrayons son Graphe de Flux de Contrôle (CFG) intra-procédural, noté $G_f = (V_f, E_f)$, où $V_f$ représente l'ensemble des blocs de base (\textit{basic blocks}) et $E_f$ les transitions de contrôle (sauts, branchements conditionnels).
+
+\subsubsection{Topologie en Bag-of-Paths (BoP)}
+Les approches classiques traitent $G_f$ soit de manière aplatie, soit via des réseaux de neurones sur graphes (GNN). Pour garantir une résilience face aux obfuscations modifiant agressivement la matrice d'adjacence (comme l'aplatissement du flux de contrôle - FLA), nous décomposons la topologie du programme en un ensemble de chemins d'exécution indépendants.
+
+Nous définissons un chemin $p$ de longueur $L$ comme une séquence de blocs de base $p = (v_1, v_2, \dots, v_L)$ telle que $\forall i \in \{1, \dots, L-1\}, (v_i, v_{i+1}) \in E_f$.
+Afin de pallier l'explosion combinatoire des chemins (\textit{path explosion}), inhérente à l'analyse statique, nous implémentons un algorithme de recherche en profondeur (DFS) aléatoire itératif. À partir du bloc d'entrée de la fonction $v_{entry}$, nous échantillonnons un sous-ensemble de chemins maximaux avec une longueur maximale fixée à $L_{max} = 50$, et limitons le nombre total de chemins extraits à $N_{max} = 500$.
+Ainsi, chaque fonction $f$ est représentée par un multiensemble (ou \textit{Bag}) de chemins :
+\begin{equation}
+    \mathcal{B}_{f} = \{ p_1, p_2, \dots, p_N \} \quad \text{avec} \quad N \leq N_{max}
+\end{equation}
+
+\subsubsection{Canonicalisation VEX et Résolution des API}
+La traduction directe du VEX IR produit un vocabulaire extrêmement vaste (adresses mémoires hardcodées, noms de registres temporaires $\texttt{t1}, \texttt{t2}$), conduisant irrémédiablement au problème des mots inconnus (OOV - \textit{Out-Of-Vocabulary}). Nous introduisons donc une fonction de projection sémantique stricte $\Phi : \mathcal{V}_{VEX} \rightarrow \mathcal{T}$ qui mappe chaque déclaration VEX vers un token abstrait $t$ issu d'un dictionnaire fini $\mathcal{T}$.
+
+L'opérateur $\Phi$ applique les transformations suivantes sur les opérandes et instructions :
+\begin{itemize}
+    \item \textbf{Opérations et Mémoire :} Les écritures et lectures sont abstraites par l'intention de l'action : $\texttt{Ist\_Put} \mapsto \texttt{VEX\_REG\_WRITE}$, $\texttt{Iex\_Load} \mapsto \texttt{VEX\_LOAD}$.
+    \item \textbf{Opérateurs arithmétiques :} Les calculs sont réduits à leur classe opératoire principale (ex: $\texttt{Iop\_Sub32} \mapsto \texttt{VEX\_OP\_SUB}$).
+    \item \textbf{Résolution des appels terminaux :} Si un bloc se termine par un saut vers la table de liaison (PLT) ou un appel système, l'intention est explicitement capturée dans la séquence finale via un token dédié (ex: $\texttt{<API\_PUTS>}$ ou $\texttt{<SYSCALL\_EXECVE>}$). Dans le cas contraire, le type de saut (\textit{JumpKind}) est conservé (ex: $\texttt{JK\_RET}$, $\texttt{JK\_BORING}$).
+\end{itemize}
+
+Grâce à cette projection $\Phi$, chaque chemin $p = (v_1, \dots, v_L)$ est aplati en une unique séquence de tokens 1D de longueur $S$, constituant l'entrée de notre modèle I-JEPA. Ce dictionnaire minimaliste (moins de 200 tokens) garantit un espace d'encodage dense et force l'architecture neuronale à déduire la sémantique de l'algorithme à partir du contexte global de la séquence, plutôt qu'en mémorisant des adresses spécifiques.
+
+% --- SCHÉMA TIKZ DU PIPELINE ---
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 2cm,
+    box/.style={rectangle, draw=white, thick, fill=blue!10, text width=3cm, align=center, minimum height=1.5cm, rounded corners},
+    arrow/.style={-latex, thick},
+    label/.style={font=\footnotesize\itshape}
+]
+
+% Nodes
+\node[box, fill=gray!20] (elf) {\textbf{Binaire ELF}\\(x86, ARM, etc.)};
+\node[box, right=of elf] (angr) {\textbf{angr CFGFast}\\Levage en VEX IR};
+\node[box, right=of angr] (dfs) {\textbf{DFS Aléatoire}\\Extraction des chemins};
+\node[box, fill=green!10, below=of dfs] (canonical) {\textbf{Projection $\Phi$}\\Canonicalisation VEX};
+\node[box, fill=orange!10, left=of canonical] (bop) {\textbf{Bag-of-Paths}\\Séquences 1D Tokenisées};
+
+% Arrows
+\draw[arrow] (elf) -- (angr) node[midway, above, label] {Désassemblage};
+\draw[arrow] (angr) -- (dfs) node[midway, above, label] {Graphe $G_f$};
+\draw[arrow] (dfs) -- (canonical) node[midway, right, label] {Max $L=50$};
+\draw[arrow] (canonical) -- (bop) node[midway, above, label] {$v_i \mapsto t \in \mathcal{T}$};
+
+% API Call annotation
+\node[text width=4cm, align=left, font=\scriptsize, right=0.5cm of canonical] (api) {
+    Exemple de projection:\\
+    \texttt{Ist\_Put} $\rightarrow$ \texttt{VEX\_REG\_WRITE}\\
+    \texttt{call puts} $\rightarrow$ \texttt{<API\_PUTS>}\\
+    \texttt{Jump} $\rightarrow$ \texttt{JK\_BORING}
+};
+\draw[dashed, ->] (api) -- (canonical);
+
+\end{tikzpicture}
+\caption{Pipeline d'extraction statique et de projection sémantique générant les séquences du Bag-of-Paths.}
+\label{fig:pipeline_extraction}
+\end{figure}
+
+\subsubsection{Robustesse Opérationnelle MLOps}
+L'analyse statique de malwares est un processus notoirement instable : les techniques d'obfuscation avancées (comme UPX ou Themida) peuvent forcer les moteurs symboliques ou de levage dans des boucles infinies ou provoquer des épuisements de mémoire RAM (OOM - \textit{Out-Of-Memory}). Pour garantir le passage à l'échelle sur des millions d'échantillons, notre pipeline est encapsulé dans une architecture multiprocessus robuste exploitant un isolement temporel strict (\textit{hard-timeout} via signaux SIGTERM). De plus, un cache de blocs intra-fonction garantit qu'une adresse n'est soulevée en VEX qu'une seule fois, même si elle participe à des centaines de chemins, optimisant drastiquement le temps d'extraction global.
+% subsection Extraction et Représentation des Données (end)
+

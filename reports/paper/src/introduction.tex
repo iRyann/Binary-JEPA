@@ -1,0 +1,42 @@
+\section{Introduction}
+
+Le paysage de la cybersécurité fait face à une croissance fulgurante et continue des menaces, aujourd'hui accélérée par le biais des modèles génératifs tels que \glspl{llm}, et les automatisations agentiques diverses.
+Les éditeurs de sécurité détectent actuellement environ 350 000 nouveaux programmes malveillants ou applications indésirables chaque jour \cite{kmeans_2025, orcas_2025}.
+Sur la seule année 2024, approximativement huit millions de nouveaux échantillons de malwares ont été identifiés \cite{orcas_2025}.
+Cette prolifération est par ailleurs exacerbée par l'expansion des objets connectés (\gls{iot}) et des systèmes embarqués, qui offrent une surface d'attaque massive pour de nouvelles variantes de botnets (telles que Mirai ou Torii) et autres codes malveillants ciblant de multiples architectures \cite{heterogeneous_dataset}.
+
+Face à ce volume gigantesque et à l'évolution constante des techniques d'attaque, l'analyse manuelle des exécutables par des experts en rétro-ingénierie est devenue une tâche trop lente, coûteuse et fastidieuse \cite{artuso_thesis, bayer_dynamic}.
+L'automatisation de l'\gls{analyse_statique} s'impose donc comme une nécessité absolue pour identifier, classer et regrouper rapidement ces menaces.
+Pour faire face à ce défi, la communauté scientifique et l'industrie se tournent massivement vers le développement d'outils automatisés propulsés par l'apprentissage automatique (\gls{ml} et \gls{dl}) \cite{artuso_thesis}.
+
+
+Cependant, bien que l'analyse statique soit essentielle, se baser uniquement sur le code assembleur brut ou sur la topologie inhérente du programme présente de graves lacunes face aux mutations du code :
+
+\paragraph{La fragilité de l'assembleur brut} 
+Un même code source compilé génère des séquences d'instructions radicalement différentes en fonction de l'architecture matérielle ciblée (x86, ARM, MIPS), du compilateur utilisé (par exemple GCC ou Clang) et du niveau d'optimisation choisi (de -O0 à -O3, ou -Os) \cite{ruan_survey_2024, luo_semantics_2017}.
+Le processus de compilation entraîne naturellement une perte d'informations sémantiques (comme les noms de variables ou de fonctions) et modifie profondément la séquence linéaire des instructions via des optimisations telles que le \gls{function_inlining} ou la réallocation de registres \cite{ruan_survey_2024, luo_semantics_2017}.
+Une comparaison purement syntaxique des octets ou de l'assembleur échoue donc rapidement à identifier des similarités.
+
+
+\paragraph{La fragilité du \gls{cfg}} 
+Pour pallier les limites de l'assembleur linéaire, l'analyse s'est historiquement tournée vers les \glspl{cfg}, qui modélisent les chemins d'exécution du programme.
+Néanmoins, les \glspl{cfg} sont extrêmement sensibles aux techniques d'obfuscation, couramment utilisées par les malwares, qui déforment intentionnellement la structure du code sans en altérer la sémantique \cite{orcas_2025}.
+Par exemple, l'insertion de \gls{bcf} ajoute des blocs de base et des arêtes factices au graphe.
+De même, l'aplatissement du flux de contrôle (\gls{fla}) détruit la hiérarchie logique du programme pour forcer toutes les exécutions à passer par un bloc répartiteur central \cite{orcas_2025}.
+Ces techniques modifient tellement la matrice d'adjacence et la topologie du graphe que les algorithmes de correspondance structurelle, ainsi que les \glspl{gnn} classiques, deviennent incapables de reconnaître des fonctions pourtant sémantiquement identiques \cite{orcas_2025}.
+
+Pour surmonter ces limites inhérentes aux représentations syntaxiques et topologiques, cet article propose une nouvelle approche de détection de similarité de code binaire (\gls{bcsd}) basée sur l'apprentissage auto-supervisé.
+Plus précisément, nos contributions principales (\textit{claims}) s'articulent autour des quatre axes suivants :
+
+\begin{itemize}
+    \item \textbf{Modélisation Sémantique Robuste (VEX \& Bag-of-Paths) :} Nous proposons un pipeline d'extraction qui traduit le code binaire en une représentation intermédiaire universelle (\gls{vexir}) afin de s'abstraire de l'architecture matérielle.
+      La topologie du programme est modélisée sous la forme d'un \gls{bagofpaths}, court-circuitant le bruit système (\gls{plt}/\gls{libc}) et offrant une résilience naturelle face aux obfuscations modifiant le graphe de contrôle (\gls{cfg}).
+    
+    \item \textbf{Architecture Prédictive Latente (I-JEPA 1D) :} Contrairement aux approches génératives traditionnelles qui tentent de reconstruire le code exact, nous adaptons l'architecture \gls{ijepa} au traitement de séquences 1D.
+      En forçant un réseau convolutif à prédire la représentation latente des instructions masquées, le modèle apprend la sémantique profonde du chemin d'exécution tout en ignorant structurellement le code mort (\gls{junkcode}).
+    
+    \item \textbf{\gls{semantic_hashing} et Évaluation :} Nous introduisons une méthode de hachage sémantique efficace exploitant l'encodeur pré-entraîné.
+      En agrégeant les vecteurs des différents chemins d'une même fonction par \gls{maxpooling}, nous générons une signature globale unique, comparable quasi-instantanément via la similarité cosinus, évitant ainsi la complexité quadratique ($O(N^2)$) des réseaux de neurones sur graphes.
+    
+    \item \textbf{Ingénierie \gls{mlops} et Éco-responsabilité :} Nous fournissons une implémentation de niveau industriel (chargement de données \textit{Just-In-Time}, entraînement distribué en précision mixte) intégrant un suivi rigoureux de l'empreinte carbone (\gls{greenai}), démontrant la viabilité de l'approche pour des déploiements à grande échelle.
+\end{itemize}

@@ -1,0 +1,44 @@
+\section{État de l'Art}
+\label{sec:etat_de_l_art}
+
+La détection de similarité de code binaire (BCSD - \textit{Binary Code Similarity Detection}) a connu une évolution paradigmatique majeure au cours des deux dernières décennies, passant de la simple vérification d'intégrité à l'extraction de sémantique latente par réseaux de neurones profonds.
+Cette section passe en revue les différentes approches historiques et contemporaines, tout en soulignant leurs limites respectives face aux techniques modernes d'obfuscation.
+
+\subsection{Hachage Cryptographique et Méthodes Syntaxiques}
+Historiquement, la détection de malwares reposait sur des signatures cryptographiques strictes telles que MD5 ou SHA-256.
+Cependant, ces fonctions de hachage souffrent d'un effet d'avalanche absolu : la modification d'un seul bit (par exemple, par l'ajout d'une instruction NOP) altère totalement l'empreinte finale.
+Pour pallier cette fragilité, la communauté s'est tournée vers le hachage partiel (\textit{Fuzzy Hashing}).
+Des algorithmes pionniers tels que \textit{ssdeep} \cite{kornblum2006ssdeep}, qui exploite le hachage par morceaux déclenché par le contexte, ou TLSH (\textit{Trend Micro Locality Sensitive Hash}) \cite{oliver2013tlsh}, ont été introduits pour tolérer des variations mineures au niveau de la séquence d'octets.
+Bien que plus robustes que les hachages cryptographiques, ces méthodes demeurent fondamentalement syntaxiques.
+Elles échouent drastiquement face aux obfuscateurs automatisés qui préservent la sémantique mais modifient l'ordre des instructions (réallocation de registres, \textit{instruction substitution}).
+
+\subsection{Modèles de Langage et Transformers appliqués au Code Binaire}
+Face aux limites de l'analyse purement syntaxique, l'émergence du traitement du langage naturel (NLP) a inspiré la modélisation des séquences d'instructions comme un langage à part entière.
+Les architectures basées sur les Transformers ont récemment dominé ce champ de recherche.
+Le modèle BinBert \cite{artuso2024binbert} a démontré la viabilité de l'adaptation de l'architecture BERT pour comprendre le contexte d'exécution du code binaire.
+Pour résoudre les problèmes liés aux sauts conditionnels qui fragmentent la séquence, jTrans \cite{wang2022jtrans} a introduit un Transformer "Jump-Aware", capable d'intégrer explicitement les cibles de saut dans son mécanisme d'attention.
+Plus récemment, kTrans \cite{zhu2023ktrans} a raffiné cette approche en injectant des connaissances préalables sur les architectures de jeux d'instructions (ISA), traitant l'assembleur non pas comme un texte brut, mais comme un système logique fortement contraint.
+Si ces modèles offrent une excellente résolution de la polysémie instructionnelle, le mécanisme d'auto-attention inhérent aux Transformers souffre d'une complexité computationnelle quadratique ($O(N^2)$), les rendant souvent impraticables pour l'analyse en temps réel de fonctions très volumineuses.
+
+\subsection{Réseaux de Graphes (GNN) et Résilience Topologique}
+En parallèle des modèles séquentiels, une large part de la recherche s'est concentrée sur la représentation du programme sous la forme d'un Graphe de Flux de Contrôle (CFG), traité via des Réseaux de Neurones sur Graphes (GNN).
+Cette approche est cependant très vulnérable aux attaques altérant la topologie, telles que l'aplatissement du flux de contrôle (\textit{Control Flow Flattening} - FLA) ou l'insertion de faux blocs de base (\textit{Bogus Control Flow} - BCF).
+Pour obtenir un invariant topologique robuste, de récents travaux comme ORCAS \cite{wang2025orcas} ont proposé le Graphe Sémantique Amélioré par la Dominance (DESG).
+En se basant sur les relations de dominance (où un nœud domine un autre si tout chemin d'exécution vers le second passe par le premier) couplées aux chaînes de dépendance de données, ORCAS \cite{wang2025orcas} parvient à abstraire la structure pour résister à des déformations agressives du CFG.
+Néanmoins, l'extraction de ces graphes et l'inférence via GNN demeurent des processus coûteux et parfois sujets à l'explosion combinatoire.
+
+\subsection{Optimisation du Hachage Profond et Discrétisation}
+L'objectif ultime d'un système BCSD à grande échelle est de produire un hachage binaire (une suite de 0 et de 1) permettant des recherches extrêmement rapides via des opérations CPU bas niveau (XOR, POPCOUNT).
+Cependant, la transformation d'un vecteur continu (issu d'un réseau de neurones) en valeurs discrètes pose un défi mathématique majeur : la fonction signe est non-différentiable, ce qui bloque la rétropropagation du gradient. 
+
+Pour contourner ce problème, la communauté utilise des estimateurs heuristiques comme le \textit{Straight-Through Estimator} (STE) \cite{bengio2013ste}, qui permet au gradient de traverser l'opération de discrétisation de manière quasi-transparente lors de la phase d'entraînement.
+Afin d'assurer que la distance de Hamming dans l'espace binaire reflète fidèlement la proximité sémantique originelle, des fonctions de perte avancées ont été développées.
+OrthoHash \cite{ji2021orthohash} optimise l'alignement géométrique en maximisant la similarité cosinus entre les vecteurs continus et des cibles orthogonales prédéfinies sur l'hypercube binaire.
+Dans une optique complémentaire de filtrage du bruit (essentiel face à l'obfuscation), des approches basées sur la théorie de l'information comme le \textit{Contrastive Information Bottleneck} (CIBHash) \cite{qiu2021cibhash} cherchent à compresser la représentation pour ne conserver que le signal sémantique pur dans l'empreinte finale.
+
+\vspace{1em}
+\paragraph{Bilan et Positionnement} 
+Malgré des avancées significatives, l'état de l'art met en lumière un compromis récurrent entre la finesse sémantique (Transformers, lents et coûteux), la robustesse structurelle (GNN, complexes à extraire), et l'efficacité à l'inférence.
+Le présent papier se positionne à l'intersection de ces contraintes en proposant une architecture inédite : l'utilisation d'un modèle prédictif latent (I-JEPA) couplé à une représentation en \textit{Bag-of-Paths}.
+Cette synergie permet de conserver les avantages de la séquence et de la topologie, sans subir les limites computationnelles des graphes et de l'auto-attention quadratique.
+
