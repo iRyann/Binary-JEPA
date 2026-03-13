@@ -12,11 +12,10 @@ def generate(
 
     for i in range(x.shape[0]):
         # tiers 2 et 3 masqués en entrée
-        start = real_lengths[i]//3
+        start = (real_lengths[i]*2)//3
         end = real_lengths[i]
         input_mask[i,start:end] = True
 
-        start = (real_lengths[i] * 2)//3
-        pred_mask[i,start:end] = True
+        pred_mask[i,end-1] = True
             
     return input_mask,pred_mask
