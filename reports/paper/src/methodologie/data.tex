@@ -1,0 +1,186 @@
+\subsection{Jeu de Données}
+\label{sec:dataset}
+
+\subsubsection{Choix du corpus et justification}
+
+Entraîner un modèle auto-supervisé requiert un corpus où les
+invariants sémantiques sont connus et contrôlables. Nous optons pour
+une approche de \emph{compilation croisée contrôlée} : plutôt que
+d'utiliser des malwares réels (corpus bruités, déséquilibrés, soumis
+à des contraintes légales), nous construisons un jeu de données
+synthétique à partir de la suite \textbf{GNU Coreutils
+v9.10} \cite{coreutils9_10}, un ensemble de $106$ utilitaires POSIX au
+comportement sémantique parfaitement documenté.
+
+Ce choix repose sur une propriété fondamentale : deux compilations
+différentes d'un même programme \emph{partagent la même sémantique}
+malgré des différences syntaxiques profondes (ordonnancement des
+blocs, choix des registres, inlining, déroulage de boucles). Le
+modèle est ainsi contraint d'apprendre des représentations
+\emph{invariantes à la compilation} — exactement la propriété
+recherchée pour la détection de variants de malwares.
+
+\subsubsection{Génération du corpus}
+
+Le pipeline de génération est entièrement automatisé via
+\texttt{generate\_data.sh}. Les sources sont téléchargées depuis le
+dépôt officiel de GNU Coreutils, puis chaque binaire est compilé
+selon la grille de variantes définie par le produit cartésien :
+\[
+  \mathcal{C} \times \mathcal{O}
+  = \{\texttt{gcc},\,\texttt{clang}\}
+    \times \{\texttt{-O0},\,\texttt{-O1},\,\texttt{-O2},\,\texttt{-O3},\,\texttt{-Os}\}.
+\]
+Chaque binaire $b \in \mathcal{B}$ (avec $|\mathcal{B}| = 106$) est
+donc compilé en $|\mathcal{C}| \times |\mathcal{O}| = 10$ variants
+distincts, pour un total de $106 \times 10 = \mathbf{1\,060}$ fichiers
+ELF. Deux précautions sont systématiquement appliquées :
+
+\begin{itemize}
+  \item \textbf{Stripping complet} (\texttt{--strip-all}) : les
+    symboles de débogage, les tables de noms et les sections
+    \texttt{.debug\_*} sont supprimés. Cela simule les conditions
+    réelles d'analyse de malwares, où les informations symboliques
+    sont absentes.
+  \item \textbf{Désactivation de la localisation} (\texttt{--disable-nls}) :
+    les chaînes de messages localisés sont retirées, réduisant la
+    variabilité des données statiques non-sémantiques dans les
+    sections \texttt{.rodata}.
+\end{itemize}
+
+\subsubsection{Structure du corpus et statistiques}
+
+Le Tableau~\ref{tab:dataset_stats} résume les caractéristiques du
+corpus après application du pipeline d'extraction
+(Section~\ref{fig:dataset_variants}).
+
+\begin{table}[ht]
+\centering
+\caption{Statistiques du corpus d'entraînement (GNU Coreutils 9.10,
+  après extraction du Bag-of-Paths).}
+\label{tab:dataset_stats}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lr}
+\toprule
+\textbf{Caractéristique}                          & \textbf{Valeur}  \\
+\midrule
+Source                                            & GNU Coreutils 9.10 \\
+Nombre de programmes distincts $|\mathcal{B}|$    & 106 \\
+Compilateurs $|\mathcal{C}|$                      & 2 (\texttt{gcc}, \texttt{clang}) \\
+Niveaux d'optimisation $|\mathcal{O}|$            & 5 (\texttt{-O0} à \texttt{-Os}) \\
+Fichiers ELF totaux                               & 1\,060 \\
+Symboles conservés                                & Aucun (\texttt{strip --strip-all}) \\
+Longueur max de séquence $L$                      & 500 tokens \\
+Taille du vocabulaire $|\mathcal{V}|$             & 371 tokens \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La Figure~\ref{fig:dataset_variants} illustre la structure de la
+grille de compilation et la relation de \emph{co-sémantique} entre
+variants d'un même binaire.
+
+% ------------------------------------------------------------------
+% Figure : grille de compilation 
+% ------------------------------------------------------------------
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  elf/.style={
+    draw, rounded corners=4pt,
+    minimum width=1.55cm, minimum height=0.65cm,
+    align=center, font=\scriptsize, line width=0.7pt
+  },
+  hdrlbl/.style={font=\footnotesize\bfseries},
+  arr/.style={-Stealth, line width=0.7pt, gray!60},
+]
+
+% ── Pas horizontal entre colonnes
+\def\dx{2}
+
+% ── En-têtes colonnes (niveaux d'optimisation)
+\foreach \j/\opt in {
+  1/\texttt{-O0}, 2/\texttt{-O1}, 3/\texttt{-O2},
+  4/\texttt{-O3}, 5/\texttt{-Os}}{
+  \node[hdrlbl, gray!70!black] at (\dx*\j, 2.6) {\opt};
+}
+
+% ── Source
+\node[draw=gray!50, fill=gray!10, rounded corners=4pt,
+      minimum width=1.2cm, minimum height=0.9cm,
+      align=center, font=\small\ttfamily]
+  (src) at (0, 2.6) {ls\\source};
+\draw[arr] (src.east) -- ++(0.4, 0);
+
+% ── Ligne gcc (y = 3.5)
+\node[hdrlbl, anchor=east, colCtx!80!black] at (1.1, 3.5) {\texttt{gcc}};
+\foreach \j/\col in {
+  1/colCtx!18, 2/colCtx!28, 3/colCtx!40, 4/colCtx!52, 5/colCtx!28}{
+  \pgfmathsetmacro{\optidx}{int(\j - 1)}
+  \node[elf, fill=\col, draw=colCtx!65]
+    (gcc\j) at (\dx*\j, 3.5)
+    {\texttt{ls\_gcc\_O\optidx}};
+}
+
+% ── Accolade au-dessus de gcc (bien au-dessus des cellules)
+\draw[decorate, decoration={brace, amplitude=6pt},
+      colCtx!60!black]
+  (gcc1.north west) -- (gcc5.north east)
+  node[midway, above=8pt, font=\tiny, colCtx!70!black,
+       text width=6cm, align=center]
+    {même sémantique, structures syntaxiques différentes};
+
+% ── Ligne clang (y = 1.7)
+\node[hdrlbl, anchor=east, colTgt!80!black] at (1.1, 1.7) {\texttt{clang}};
+\foreach \j/\col in {
+  1/colTgt!18, 2/colTgt!28, 3/colTgt!40, 4/colTgt!52, 5/colTgt!28}{
+  \pgfmathsetmacro{\optidx}{int(\j - 1)}
+  \node[elf, fill=\col, draw=colTgt!65]
+    (clang\j) at (\dx*\j, 1.7)
+    {\texttt{ls\_clang\_O\optidx}};
+}
+
+% ── Annotations strip (entre les deux lignes)
+\node[font=\tiny, gray!65] at (\dx*6, 2.65)
+  {\texttt{strip -{}-strip-all}};
+
+% ── Légende bas de figure
+\node[draw=colCtx!65, fill=colCtx!15, rounded corners=2pt,
+      font=\tiny\bfseries, inner sep=3pt,
+      text=colCtx!80!black] (lgcc) at (\dx*2.8, 0.65) {\texttt{gcc}};
+\node[draw=colTgt!65, fill=colTgt!15, rounded corners=2pt,
+      font=\tiny\bfseries, inner sep=3pt,
+      text=colTgt!80!black] (lclang) at (\dx*3.4, 0.65) {\texttt{clang}};
+\node[font=\tiny, gray!70!black] at (\dx*3.1, 0.2)
+  {10 variants ELF par binaire ($\times\,106 = 1\,060$ au total)};
+
+\end{tikzpicture}
+\caption{Grille de compilation pour un binaire représentatif
+  (\texttt{ls}). Chaque cellule est un fichier ELF strippé
+  indépendant. Les 10 variants d'un même programme partagent
+  une sémantique identique mais des représentations binaires
+  structurellement distinctes, offrant un signal d'entraînement
+  riche pour l'invariance à la compilation.}
+\label{fig:dataset_variants}
+\end{figure}
+
+\subsubsection{Limitations et perspectives}
+
+Ce corpus présente deux limitations majeures qu'il convient d'anticiper
+pour la généralisation à un contexte de détection de malwares réels.
+
+Premièrement, GNU Coreutils est un corpus de \emph{logiciels
+bénins}, compilé dans des conditions nominales. Il ne contient ni
+obfuscation, ni packing, ni techniques d'anti-analyse. Le modèle
+entraîné sur ce corpus apprend des représentations de code
+légitime, ce qui constitue une étape préalable à un entraînement
+par transfert sur des malwares (\emph{fine-tuning}).
+
+Deuxièmement, l'ensemble des binaires provient d'une unique base
+de code (un seul projet, un seul langage source, une seule
+architecture cible x86-64). La diversité des patterns sémantiques
+est donc plus limitée que dans un corpus multi-famille de malwares.
+Une extension naturelle consiste à incorporer d'autres projets
+open-source de grande envergure (noyau Linux, OpenSSL, FFmpeg)
+afin d'élargir la couverture sémantique du vocabulaire VEX appris.

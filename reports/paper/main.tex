@@ -1,0 +1,144 @@
+\documentclass{article}
+
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{palatino}
+\usepackage{cleveref}       % smart cross-referencing
+\usepackage{lipsum}         % Can be removed after putting your text content
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{doi}
+\usepackage[toc,acronyms,nonumberlist]{glossaries}
+
+% --- IMPORTS REQUIS POUR LES SCHÉMAS TIKZ ---
+\usepackage{tikz}
+\usetikzlibrary{positioning} % Indispensable pour "right=of", "below=of"
+\usetikzlibrary{calc}        % Souvent utile si vous faites des calculs de coordonnées
+\usetikzlibrary{arrows.meta} % Pour de belles flèches (-latex)
+\usetikzlibrary{shapes.geometric,arrows.meta,positioning,
+                fit,backgrounds,decorations.pathreplacing,
+                patterns,calc,shadows.blur}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,xcolor}
+\usepackage{multirow}
+% -----------------------------------------------------------
+% couleurs maison
+\definecolor{colCtx}{HTML}{3B82F6}   % bleu  — encodeur contexte
+\definecolor{colTgt}{HTML}{10B981}   % vert  — encodeur cible
+\definecolor{colPred}{HTML}{F59E0B}  % ambre — prédicteur
+\definecolor{colMask}{HTML}{EF4444}  % rouge — masque
+\definecolor{colPad}{HTML}{6B7280}   % gris  — padding
+\definecolor{colLoss}{HTML}{8B5CF6}  % violet — perte
+
+
+%----------- Paper Config ---------
+\title{Hachage Sémantique de Binaires par Apprentissage Auto-Supervisé : \emph{Binary-JEPA}, Une Approche JEPA sur Bag-of-Paths VEX}
+
+% Here you can change the date presented in the paper title
+\date{18 mars 2026}
+
+\newif\ifuniqueAffiliation
+% Comment to use multiple affiliations variant of author block 
+\uniqueAffiliationtrue
+
+\ifuniqueAffiliation % Standard variant of author block
+  \author{ \href{https://orcid.org/0009-0001-5714-3438}{\includegraphics[scale=0.06]{assets/orcid.pdf}\hspace{1mm}Ryan Bouchou}\thanks{\href{https://ryanbouchou.fr}{https://www.ryanbouchou.fr}} \\
+	ING3 Cybersécurité\\
+	CY Tech\\
+	64000 Pau, France \\
+	\texttt{ryan.bouchou@etu.cyu.fr} \\
+	%% examples of more authors
+	\And
+	\href{https://orcid.org/0000-0000-0000-0000}{\includegraphics[scale=0.06]{assets/orcid.pdf}\hspace{1mm}Ruben Petteng-Ngongang} \\
+	ING3 Cybersécurité\\
+	CY Tech\\
+	64000 Pau, France \\
+	\texttt{ruben.pentteng-ngongang@etu.cyu.fr} \\
+	}
+\else
+% Multiple affiliations variant of author block
+\usepackage{authblk}
+\renewcommand\Authfont{\bfseries}
+\setlength{\affilsep}{0em}
+% box is needed for correct spacing with authblk
+\newbox{\orcid}\sbox{\orcid}{\includegraphics[scale=0.06]{assets/orcid.pdf}} 
+\author[1]{%
+	\href{https://orcid.org/0000-0000-0000-0000}{\usebox{\orcid}\hspace{1mm}David S.~Hippocampus\thanks{\texttt{hippo@cs.cranberry-lemon.edu}}}%
+}
+\author[1,2]{%
+	\href{https://orcid.org/0000-0000-0000-0000}{\usebox{\orcid}\hspace{1mm}Elias D.~Striatum\thanks{\texttt{stariate@ee.mount-sheikh.edu}}}%
+}
+\affil[1]{Department of Computer Science, Cranberry-Lemon University, Pittsburgh, PA 15213}
+\affil[2]{Department of Electrical Engineering, Mount-Sheikh University, Santa Narimana, Levand}
+\fi
+
+% Uncomment to override  the `A preprint' in the header
+%\renewcommand{\headeright}{Technical Report}
+%\renewcommand{\undertitle}{Technical Report}
+\renewcommand{\shorttitle}{Binary-JEPA}
+
+%%% Add PDF metadata to help others organize their library
+%%% Once the PDF is generated, you can check the metadata with
+%%% $ pdfinfo template.pdf
+\hypersetup{
+pdftitle={Hachage Sémantique de Binaires par Apprentissage Auto-Supervisé : \emph{Binary-JEPA}, Une Approche JEPA sur Bag-of-Paths VEX},
+pdfsubject={ML},
+pdfauthor={Ryan Bouchou, Ruben Petteng-Ngongang},
+pdfkeywords={Analyse de malwares, Hachage sémantique, Apprentissage auto-supervisé, VEX IR, Bag-of-Paths, JEPA, MLOps},
+}
+
+%----------- Glossaries ---------
+\makeglossaries
+\input{glossaries}
+%--------------------------------
+
+\begin{document}
+\maketitle
+
+%############## Corps du rapport ##############
+\input{src/abstract}
+\newpage
+\input{src/introduction}  
+\input{src/sota}
+\input{src/methodologie/introduction}
+\input{src/methodologie/data}
+\input{src/methodologie/lifting}
+\input{src/methodologie/ijepa}
+\input{src/methodologie/learning}
+\input{src/methodologie/package}
+\input{src/resultats/toc}
+\input{src/revue}
+\input{src/conclusion}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%         Annexes           %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\appendix
+\input{src/annexes/toc.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%         Glossaires        %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\printglossary[type=main, title={Glossaire}]
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%       Bibliographie       %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,663 @@
+% ============================================================
+\subsection{Architecture du Modèle Auto-Supervisé}
+\label{sub:method}
+% ============================================================
+ 
+\subsubsection{Vue d'ensemble}
+ 
+Nous proposons une adaptation unidimensionnelle du cadre
+\emph{Image-based Joint-Embedding Predictive Architecture}
+(I-JEPA, \cite{assran2023self}) à l'analyse statique de
+binaires ELF. La représentation d'entrée est une \emph{séquence
+de tokens VEX/API} de longueur fixe $L$, notée
+\[
+  \bm{x} = (x_1, x_2, \ldots, x_L) \in \mathcal{V}^{L},
+\]
+où $\mathcal{V}$ est le vocabulaire discret de taille $|\mathcal{V}|
+= 371$ (voir Section~\ref{tab:dataset_stats}).
+Le modèle comprend trois composants appris : un \emph{encodeur de
+contexte} $f_\theta$, un \emph{encodeur cible} $f_\xi$ (également
+appelé \emph{professeur}), et un \emph{prédicteur} $g_\phi$.
+L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
+ 
+% ------------------------------------------------------------------
+% Figure 1 : vue d'ensemble I-JEPA 1D  — layout vertical, espacé
+% ------------------------------------------------------------------
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  %% boîtes de modules
+  enc/.style={
+    draw, rounded corners=5pt,
+    minimum width=3.4cm, minimum height=1.4cm,
+    align=center, line width=1pt, text width=3.0cm
+  },
+  pred/.style={
+    draw, rounded corners=5pt,
+    minimum width=3.0cm, minimum height=1.2cm,
+    align=center, line width=1pt, text width=2.6cm
+  },
+  repr/.style={
+    draw, rounded corners=3pt,
+    minimum width=3.2cm, minimum height=0.65cm,
+    align=center, font=\small, line width=0.7pt
+  },
+  loss/.style={
+    draw, rounded corners=5pt,
+    minimum width=6.2cm, minimum height=0.8cm,
+    align=center, line width=1pt, text width=5.8cm
+  },
+  %% cellules de séquence
+  tok/.style={
+    draw=black!35, minimum width=0.58cm, minimum height=0.58cm,
+    inner sep=0pt, font=\scriptsize, rounded corners=1pt
+  },
+  %% flèches
+  arr/.style={-Stealth, line width=1.0pt},
+  emaArr/.style={-Stealth, line width=1.0pt, dashed, colTgt},
+  sgLbl/.style={font=\scriptsize, colTgt!80!black, rotate=90},
+]
+ 
+% ═══════════════════════════════════════════════════════════════
+% RANGÉE 1 — Séquences d'entrée (côte à côte, bien espacées)
+% ═══════════════════════════════════════════════════════════════
+ 
+% -- Colonne gauche : séquence masquée --------------------------
+\node[font=\footnotesize\bfseries, anchor=center]
+  (lbl_left) at (-3.4, 7.2) {Séquence $\tilde{\bm{x}}$ (masquée)};
+ 
+% tokens : contexte (bleu), pré-cible (rouge clair), cible (rouge),
+%          padding (gris)
+\foreach \i/\col/\lbl in {
+  0/colCtx!25/{\scriptsize VEX},
+  1/colCtx!25/{\scriptsize OP},
+  2/colMask!30/{\scriptsize[M]},
+  3/colMask!30/{\scriptsize[M]},
+  4/colMask!65/{\scriptsize[M]},
+  5/colMask!65/{\scriptsize[M]},
+  6/colPad!20/{\scriptsize[P]},
+  7/colPad!20/{\scriptsize[P]}}{
+    \node[tok, fill=\col] (tL\i) at (-5.1 + \i*0.70, 6.6) {\lbl};
+}
+ 
+% accolades sous tokens gauche
+\draw[decorate,decoration={brace,mirror,amplitude=4pt}]
+  (tL0.south west) -- (tL1.south east)
+  node[midway,below=4pt,font=\tiny,colCtx!70!black]{contexte};
+\draw[decorate,decoration={brace,mirror,amplitude=4pt}]
+  (tL2.south west) -- (tL3.south east)
+  node[midway,below=4pt,font=\tiny,colMask!70!black]{pré-cible};
+\draw[decorate,decoration={brace,mirror,amplitude=4pt}]
+  (tL4.south west) -- (tL5.south east)
+  node[midway,below=4pt,font=\tiny,colMask!80!black]{cible};
+\draw[decorate,decoration={brace,mirror,amplitude=4pt}]
+  (tL6.south west) -- (tL7.south east)
+  node[midway,below=4pt,font=\tiny,colPad!60!black]{pad};
+ 
+% -- Colonne droite : séquence non masquée ----------------------
+\node[font=\footnotesize\bfseries, anchor=center]
+  (lbl_right) at (3.4, 7.2) {Séquence $\bm{x}$ (non masquée)};
+ 
+\foreach \i/\col/\lbl in {
+  0/colCtx!25/{\scriptsize VEX},
+  1/colCtx!25/{\scriptsize OP},
+  2/white/{\scriptsize API},
+  3/white/{\scriptsize JK},
+  4/colTgt!30/{\scriptsize VEX},
+  5/colTgt!30/{\scriptsize OP},
+  6/colPad!20/{\scriptsize[P]},
+  7/colPad!20/{\scriptsize[P]}}{
+    \node[tok, fill=\col] (tR\i) at (1.7 + \i*0.70, 6.6) {\lbl};
+}
+ 
+% ═══════════════════════════════════════════════════════════════
+% RANGÉE 2 — Encodeurs
+% ═══════════════════════════════════════════════════════════════
+ 
+\node[enc, fill=colCtx!10, draw=colCtx, text=colCtx!80!black]
+  (ftheta) at (-3.4, 4.5)
+  {\textbf{Encodeur de Contexte}\\[2pt]$f_{\theta}$};
+ 
+\node[enc, fill=colTgt!10, draw=colTgt, text=colTgt!80!black]
+  (fxi) at (3.4, 4.5)
+  {\textbf{Encodeur Cible (EMA)}\\[2pt]$f_{\xi}$};
+ 
+% flèches séquences → encodeurs
+\draw[arr, colCtx] (-3.4, 6.22) -- (ftheta.north);
+\draw[arr, colTgt]  (3.4, 6.22) -- (fxi.north);
+ 
+% ═══════════════════════════════════════════════════════════════
+% FLÈCHE EMA (entre encodeurs, passant par le haut)
+% ═══════════════════════════════════════════════════════════════
+ 
+\draw[emaArr]
+  (ftheta.north east) -- ++(0.5, 0.5)
+  -- node[above, font=\scriptsize, colTgt!80!black]
+       {$\xi \;\leftarrow\; m\,\xi + (1-m)\,\theta$}
+  ++(4.2, 0) -- (fxi.north west);
+ 
+% ═══════════════════════════════════════════════════════════════
+% RANGÉE 3 — Représentations latentes
+% ═══════════════════════════════════════════════════════════════
+ 
+\node[repr, fill=colCtx!8, draw=colCtx]
+  (zctx) at (-3.4, 3.0) {$\bm{Z}_{\mathrm{ctx}} \in \mathbb{R}^{L \times d}$};
+ 
+\node[repr, fill=colTgt!8, draw=colTgt]
+  (ztgt) at (3.4, 3.0)  {$\bm{Z}_{\mathrm{tgt}} \in \mathbb{R}^{L \times d}$};
+ 
+\draw[arr, colCtx] (ftheta) -- (zctx);
+\draw[arr, colTgt] (fxi)    -- (ztgt);
+ 
+% stop-gradient sur la branche cible
+\node[sgLbl] at (3.85, 3.75) {stop-grad};
+\draw[colTgt!60, dashed, line width=0.5pt]
+  (3.70, 3.44) -- (3.70, 4.17);
+ 
+% ═══════════════════════════════════════════════════════════════
+% RANGÉE 4 — Prédicteur (centré)
+% ═══════════════════════════════════════════════════════════════
+ 
+\node[pred, fill=colPred!12, draw=colPred, text=colPred!70!black]
+  (gphi) at (0, 1.8)
+  {\textbf{Prédicteur}\\[2pt]$g_{\phi}$};
+ 
+% Z_ctx → prédicteur
+\draw[arr, colCtx]
+  (zctx.south) -- ++(0, -0.3) -| (gphi.north);
+ 
+% ═══════════════════════════════════════════════════════════════
+% RANGÉE 5 — Prédiction
+% ═══════════════════════════════════════════════════════════════
+ 
+\node[repr, fill=colPred!8, draw=colPred]
+  (zhat) at (0, 0.5) {$\hat{\bm{Z}} \in \mathbb{R}^{L \times d}$};
+ 
+\draw[arr, colPred] (gphi) -- (zhat);
+ 
+% ═══════════════════════════════════════════════════════════════
+% RANGÉE 6 — Perte (centrée)
+% ═══════════════════════════════════════════════════════════════
+ 
+\node[loss, fill=colLoss!8, draw=colLoss, text=colLoss!80!black]
+  (loss_node) at (0, -0.85)
+  {$\mathcal{L} = \mathrm{HuberLoss}\!\left(
+      \hat{\bm{Z}}_{\mathcal{M}},\;
+      \mathrm{sg}\!\left(\bm{Z}^{\mathrm{tgt}}_{\mathcal{M}}\right)
+    \right)$};
+ 
+% Z_hat → perte
+\draw[arr, colPred] (zhat) -- (loss_node.north -| zhat);
+ 
+% Z_tgt → perte (descend, puis va à gauche vers la perte)
+\draw[arr, colTgt]
+  (ztgt.south) -- ++(0,-0.35) -- ++(0,-1.35)
+  -| (loss_node.east);
+ 
+\end{tikzpicture}
+\caption{Architecture I-JEPA 1D. La séquence masquée $\tilde{\bm{x}}$
+  alimente l'encodeur de contexte $f_\theta$ (bleu) ; la séquence
+  intacte $\bm{x}$ alimente l'encodeur cible $f_\xi$ (vert), mis à
+  jour exclusivement par EMA (flèche pointillée). Le prédicteur
+  $g_\phi$ (ambre) produit $\hat{\bm{Z}}$ depuis $\bm{Z}_{\text{ctx}}$,
+  et la perte de Huber est calculée uniquement sur la zone cible
+  $\mathcal{M}$. Aucun gradient ne se propage à travers $f_\xi$
+  (\emph{stop-gradient}).}
+\label{fig:ijepa_overview}
+\end{figure}
+ 
+% ============================================================
+\subsubsection{Représentation d'Entrée}
+\label{sub:input_repr}
+% ============================================================
+ 
+Chaque chemin extrait par le pipeline (Section~\ref{fig:pipeline_extraction})
+est une liste de tokens symboliques issus de l'IR VEX et des points
+de sortie vers les API système. Les tokens sont convertis en indices
+entiers par le vocabulaire $\mathcal{V}$, puis les séquences sont
+tronquées à $L = 500$ tokens et complétées par le token spécial
+\texttt{<PAD>} (identifiant $0$) pour atteindre la longueur fixe $L$.
+Formellement, pour un chemin $p$ de longueur $\ell_p$,
+\[
+  x_i =
+  \begin{cases}
+    v(p_i) & \text{si } i \le \ell_p,\\
+    0       & \text{sinon (padding)},
+  \end{cases}
+\]
+où $v : \mathcal{V} \to \{0, \ldots, |\mathcal{V}|-1\}$ est la
+fonction d'encodage du vocabulaire.
+ 
+% ============================================================
+\subsubsection{Encodeur de Contexte \texorpdfstring{$f_\theta$}{f\_theta}}
+\label{sub:context_encoder}
+% ============================================================
+ 
+L'encodeur de contexte projette une séquence de tokens (partiellement
+masquée) dans un espace de représentation continu de dimension $d=256$.
+Il est composé d'une couche d'embedding suivie d'un réseau de
+convolutions 1D causales.
+ 
+\paragraph{Embedding.}
+Les indices entiers sont d'abord projetés dans $\mathbb{R}^{e}$
+via une matrice apprise $\bm{E} \in \mathbb{R}^{|\mathcal{V}| \times e}$,
+avec $e = 128$ :
+\[
+  \bm{H}^{(0)} = \bm{E}[\bm{x}] \in \mathbb{R}^{L \times e}.
+\]
+ 
+\paragraph{Réseau convolutif.}
+Trois couches de convolution 1D sont appliquées successivement sur
+la dimension temporelle, selon le schéma
+$e \to h \to h \to d$ avec $h = 256$ et $d = 256$ :
+\begin{align}
+  \bm{H}^{(1)} &= \mathrm{GELU}\!\left(
+    \mathrm{Conv1D}_{k=5}^{\,e \to h}\!\left(\bm{H}^{(0)}\right)\right),
+  \label{eq:conv1}\\
+  \bm{H}^{(2)} &= \mathrm{GELU}\!\left(
+    \mathrm{Conv1D}_{k=5}^{\,h \to h}\!\left(\bm{H}^{(1)}\right)\right),
+  \label{eq:conv2}\\
+  \bm{Z} &= \mathrm{Conv1D}_{k=3}^{\,h \to d}\!\left(\bm{H}^{(2)}\right)
+            \in \mathbb{R}^{L \times d}.
+  \label{eq:conv3}
+\end{align}
+Les convolutions utilisent un padding ``same'' ($p = \lfloor k/2
+\rfloor$), de sorte que la longueur de la séquence est préservée à
+chaque étape. L'encodeur cible $f_\xi$ partage la même architecture
+que $f_\theta$ mais possède ses propres paramètres, mis à jour
+exclusivement par EMA (Section~\ref{sub:ema}).
+ 
+% ------------------------------------------------------------------
+% Figure 2 : architecture de l'encodeur 1D
+% ------------------------------------------------------------------
+\begin{figure}[ht]
+\centering
+\resizebox{0.82\linewidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  layer/.style={
+    draw, rounded corners=3pt,
+    minimum width=1.6cm, minimum height=3.2cm,
+    align=center, line width=0.8pt
+  },
+  arr/.style={-Stealth, line width=0.9pt},
+  dim/.style={font=\tiny, fill=white, inner sep=1pt},
+]
+ 
+% embedding
+\node[layer, fill=gray!10, draw=gray!60]
+  (emb) at (0,0) {Embedding\\$|\mathcal{V}| \times e$};
+ 
+% conv1
+\node[layer, fill=colCtx!15, draw=colCtx, right=1.0cm of emb]
+  (c1) {\texttt{Conv1D}\\$k=5,\,p=2$\\$e \to h$\\\texttt{GELU}};
+ 
+% conv2
+\node[layer, fill=colCtx!20, draw=colCtx, right=1.0cm of c1]
+  (c2) {\texttt{Conv1D}\\$k=5,\,p=2$\\$h \to h$\\\texttt{GELU}};
+ 
+% conv3
+\node[layer, fill=colCtx!28, draw=colCtx, right=1.0cm of c2]
+  (c3) {\texttt{Conv1D}\\$k=3,\,p=1$\\$h \to d$};
+ 
+% sortie
+\node[draw=colCtx, fill=colCtx!8, rounded corners=3pt,
+      minimum width=1.6cm, minimum height=0.55cm, right=1.0cm of c3]
+  (out) {$\bm{Z} \in \mathbb{R}^{L \times d}$};
+ 
+% flèches + dimensions
+\draw[arr] (emb) -- (c1)
+  node[dim, midway, above] {$(B,L,e)$};
+\draw[arr] (c1) -- (c2)
+  node[dim, midway, above] {$(B,L,h)$};
+\draw[arr] (c2) -- (c3)
+  node[dim, midway, above] {$(B,L,h)$};
+\draw[arr] (c3) -- (out)
+  node[dim, midway, above] {$(B,L,d)$};
+ 
+% input
+\node[left=0.8cm of emb, font=\small] (inp) {$\bm{x} \in \mathbb{Z}^{B \times L}$};
+\draw[arr] (inp) -- (emb);
+ 
+% annotation hyperparamètres
+\node[font=\tiny, gray, below=0.25cm of c1] {$e=128$};
+\node[font=\tiny, gray, below=0.25cm of c2] {$h=256$};
+\node[font=\tiny, gray, below=0.25cm of c3] {$d=256$};
+ 
+\end{tikzpicture}
+}
+\caption{Architecture de l'encodeur convolutif 1D $f_\theta$
+  (identique pour $f_\xi$). Les dimensions sont indiquées par batch
+  $B$, longueur de séquence $L$, et canaux. Le padding \emph{same}
+  préserve $L$ tout au long du réseau.}
+\label{fig:encoder_arch}
+\end{figure}
+ 
+% ============================================================
+\subsubsection{Prédicteur \texorpdfstring{$g_\phi$}{g\_phi}}
+\label{sub:predictor}
+% ============================================================
+ 
+Le prédicteur est un réseau entièrement connecté léger opérant en
+\emph{position-wise} sur les représentations produites par $f_\theta$.
+Pour chaque position $i \in \{1, \ldots, L\}$ :
+\[
+  \hat{\bm{z}}_i
+  = \bm{W}_2\,\mathrm{GELU}\!\left(\bm{W}_1\,\bm{z}^{\text{ctx}}_i
+    + \bm{b}_1\right) + \bm{b}_2,
+\]
+avec $\bm{W}_1 \in \mathbb{R}^{d_h \times d}$,
+$\bm{W}_2 \in \mathbb{R}^{d \times d_h}$, $d_h = 512$.
+En notation matricielle (sur le batch entier),
+\[
+  \hat{\bm{Z}} = g_\phi\!\left(\bm{Z}_{\text{ctx}}\right)
+  \in \mathbb{R}^{B \times L \times d}.
+\]
+Le prédicteur est intentionnellement peu profond : sa capacité
+réduite l'empêche de mémoriser la séquence d'entrée et force
+l'encodeur de contexte à produire des représentations
+sémantiquement riches~\cite{assran2023self}.
+ 
+% ============================================================
+\subsubsection{Stratégie de Masquage}
+\label{sub:masking}
+% ============================================================
+ 
+Contrairement aux approches de masquage uniforme (BERT, MAE), nous
+adoptons un masquage par \emph{blocs contigus} tenant compte de la
+longueur réelle $\ell_i$ de chaque séquence dans le batch, définie
+par
+\[
+  \ell_i = \bigl|\{j : x_{i,j} \ne x_{\text{PAD}}\}\bigr|
+         = \sum_{j=1}^{L} \mathbf{1}[x_{i,j} \ne 0].
+\]
+La séquence réelle est partitionnée en trois blocs de taille
+approximativement égale. Deux masques booléens sont construits pour
+chaque exemple $i$ du batch :
+ 
+\begin{itemize}
+  \item \textbf{Masque d'entrée} $\mathcal{M}^{\text{in}}_i$ —
+    positions $[\lfloor\ell_i/3\rfloor,\, \ell_i)$ sont remplacées
+    par \texttt{<MASK>} (ID~2) avant d'entrer dans $f_\theta$.
+    Cela cache les blocs 2 et 3 au contexte.
+  \item \textbf{Masque de prédiction} $\mathcal{M}^{\text{pred}}_i$
+    — positions $[\lfloor 2\ell_i/3\rfloor,\, \ell_i)$ constituent
+    la \emph{cible} : c'est sur ces positions uniquement que la
+    perte est calculée.
+\end{itemize}
+ 
+Formellement, la séquence présentée à $f_\theta$ est
+\[
+  \tilde{x}_{i,j} =
+  \begin{cases}
+    x_{\text{MASK}} & \text{si } j \in \mathcal{M}^{\text{in}}_i,\\
+    x_{i,j}         & \text{sinon}.
+  \end{cases}
+\]
+La Figure~\ref{fig:masking} illustre cette stratégie en tiers sur une
+séquence de longueur réelle arbitraire $\ell$.
+ 
+% ------------------------------------------------------------------
+% Figure 3 : stratégie de masquage en tiers
+% ------------------------------------------------------------------
+\begin{figure}[ht]
+\centering
+\resizebox{0.88\linewidth}{!}{%
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  cell/.style={draw, minimum width=0.6cm, minimum height=0.6cm,
+               inner sep=0pt, font=\footnotesize},
+]
+ 
+\def\L{12}   % tokens réels
+\def\P{3}    % tokens padding
+ 
+% -- Rangée 1 : séquence originale --
+\node[font=\footnotesize\bfseries, anchor=east] at (-0.15, 2.0) {Séquence $\bm{x}$};
+\foreach \i in {1,...,\L} {
+  \node[cell, fill=colCtx!20] (o\i) at (\i*0.65-0.33, 2.0) {\i};
+}
+\foreach \j in {1,...,\P} {
+  \node[cell, fill=colPad!20, draw=gray!40]
+    at (\L*0.65+\j*0.65-0.33, 2.0) {\texttt{P}};
+}
+ 
+% -- Rangée 2 : séquence masquée (entrée f_theta) --
+\node[font=\footnotesize\bfseries, anchor=east] at (-0.15, 1.1) {Entrée $\tilde{\bm{x}}$};
+% tier 1 : contexte
+\foreach \i in {1,...,4} {
+  \node[cell, fill=colCtx!20] at (\i*0.65-0.33, 1.1) {\i};
+}
+% tier 2 : masqué en entrée (pré-cible)
+\foreach \i in {5,...,8} {
+  \node[cell, fill=colMask!40, draw=colMask] at (\i*0.65-0.33, 1.1)
+    {\texttt{M}};
+}
+% tier 3 : masqué en entrée (cible)
+\foreach \i in {9,...,12} {
+  \node[cell, fill=colMask!65, draw=colMask!80] at (\i*0.65-0.33, 1.1)
+    {\texttt{M}};
+}
+% padding
+\foreach \j in {1,...,\P} {
+  \node[cell, fill=colPad!20, draw=gray!40]
+    at (\L*0.65+\j*0.65-0.33, 1.1) {\texttt{P}};
+}
+ 
+% -- Rangée 3 : masque de prédiction --
+\node[font=\footnotesize\bfseries, anchor=east] at (-0.15, 0.2) {Cible $\mathcal{M}^{\text{pred}}$};
+\foreach \i in {1,...,8} {
+  \node[cell, fill=white, draw=gray!30] at (\i*0.65-0.33, 0.2) {};
+}
+\foreach \i in {9,...,12} {
+  \node[cell, fill=colLoss!50, draw=colLoss] at (\i*0.65-0.33, 0.2)
+    {\checkmark};
+}
+\foreach \j in {1,...,\P} {
+  \node[cell, fill=colPad!20, draw=gray!40]
+    at (\L*0.65+\j*0.65-0.33, 0.2) {};
+}
+ 
+% -- Accolades annotations --
+\draw[decorate, decoration={brace,amplitude=5pt}]
+  (0.0, 2.4) -- (4*0.65, 2.4)
+  node[midway, above=5pt, font=\tiny\bfseries, colCtx!80!black]
+    {Tier 1 — Contexte};
+\draw[decorate, decoration={brace,amplitude=5pt}]
+  (4*0.65+0.02, 2.4) -- (8*0.65, 2.4)
+  node[midway, above=5pt, font=\tiny\bfseries, colMask!80!black]
+    {Tier 2 — Masqué (pré-cible)};
+\draw[decorate, decoration={brace,amplitude=5pt}]
+  (8*0.65+0.02, 2.4) -- (12*0.65, 2.4)
+  node[midway, above=5pt, font=\tiny\bfseries, colLoss!70!black]
+    {Tier 3 — Cible $\mathcal{M}^{\text{pred}}$};
+\draw[decorate, decoration={brace,amplitude=5pt}]
+  (12*0.65+0.02, 2.4) -- (15*0.65, 2.4)
+  node[midway, above=5pt, font=\tiny\bfseries, colPad!60!black]
+    {Padding};
+ 
+% -- Légende frontières --
+\draw[dashed, gray] (4*0.65+0.01, -0.15) -- (4*0.65+0.01, 2.7)
+  node[above, font=\tiny] {$\lfloor\ell/3\rfloor$};
+\draw[dashed, gray] (8*0.65+0.01, -0.15) -- (8*0.65+0.01, 2.7)
+  node[above, font=\tiny] {$\lfloor 2\ell/3\rfloor$};
+\draw[dashed, gray!50] (12*0.65+0.01, -0.15) -- (12*0.65+0.01, 2.7)
+  node[above, font=\tiny] {$\ell$};
+ 
+\end{tikzpicture}
+}
+\caption{Stratégie de masquage par tiers. La séquence réelle de
+  longueur $\ell$ est divisée en trois blocs égaux. Le Tier~2
+  (pré-cible) et le Tier~3 (cible) sont remplacés par
+  \texttt{<MASK>} dans l'entrée de $f_\theta$. La perte est
+  calculée uniquement sur le Tier~3 ($\mathcal{M}^{\text{pred}}$).
+  Le padding ne contribue ni au masquage ni à la perte.}
+\label{fig:masking}
+\end{figure}
+ 
+Cette conception assure que le modèle apprend à inférer la
+\emph{continuation sémantique} d'un chemin d'exécution, ce qui
+est analogue à la capacité d'un analyste à anticiper quels appels
+système ou opérations mémoire suivront une séquence d'instructions
+observée. Elle diffère du masquage aléatoire (BERT) en forçant une
+dépendance \emph{ordonnée} : le contexte est toujours antérieur à
+la cible, ce qui respecte la nature directionnelle d'un chemin de
+flot de contrôle.
+ 
+% ============================================================
+\subsubsection{Mise à jour par Moyenne Mobile Exponentielle}
+\label{sub:ema}
+% ============================================================
+ 
+L'encodeur cible $f_\xi$ n'est jamais optimisé directement par
+rétropropagation. Ses paramètres $\xi$ sont mis à jour après chaque
+itération $t$ selon la règle EMA :
+\begin{equation}
+  \xi_t \leftarrow m \cdot \xi_{t-1} + (1-m) \cdot \theta_t,
+  \label{eq:ema}
+\end{equation}
+où $m \in (0,1)$ est le momentum EMA, fixé à $m = 0{,}996$ dans
+nos expériences. L'initialisation est $\xi_0 = \theta_0$.
+ 
+Ce mécanisme joue un rôle fondamental dans la stabilité de
+l'apprentissage : il agit comme un \emph{stop-gradient} implicite
+sur la branche cible, empêchant l'effondrement de la représentation
+(\emph{representation collapse}) qui surviendrait si les deux
+encodeurs évoluaient librement. L'encodeur cible produit ainsi des
+cibles \emph{lissées dans le temps} qui guident l'encodeur de
+contexte vers des représentations cohérentes. Ce principe,
+formalisé par \cite{grill2020byol} et repris dans
+I-JEPA \cite{assran2023self}, est ici transposé à l'espace des
+séquences symboliques.
+ 
+La Figure~\ref{fig:ema_dynamics} illustre comment le momentum $m$
+contrôle la vitesse de convergence du professeur vers l'élève.
+ 
+% ------------------------------------------------------------------
+% Figure 4 : dynamique EMA selon m
+% ------------------------------------------------------------------
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.72\linewidth, height=4.8cm,
+  xlabel={Itération $t$},
+  ylabel={$\|\xi_t - \theta_t\|_2$ (normalisé)},
+  xmin=0, xmax=300,
+  ymin=0, ymax=1.05,
+  xtick={0,50,100,150,200,250,300},
+  ytick={0,0.25,0.5,0.75,1.0},
+  grid=both, grid style={line width=0.3pt, draw=gray!25},
+  axis background/.style={fill=gray!4},
+  legend style={at={(0.97,0.97)}, anchor=north east,
+                font=\tiny, fill=white, draw=gray!40},
+  label style={font=\small},
+  tick label style={font=\tiny},
+]
+% m = 0.90
+\addplot[colMask, thick, smooth] coordinates {
+  (0,1)(10,0.65)(20,0.42)(40,0.18)(60,0.08)(100,0.02)(200,0.001)(300,0)
+};
+\addlegendentry{$m=0{,}90$}
+% m = 0.996 (notre valeur)
+\addplot[colCtx, thick, smooth, dashed] coordinates {
+  (0,1)(20,0.92)(50,0.82)(100,0.67)(150,0.55)(200,0.44)(300,0.29)
+};
+\addlegendentry{$m=0{,}996$ (utilisé)}
+% m = 0.9999
+\addplot[colTgt, thick, smooth, dotted] coordinates {
+  (0,1)(50,0.995)(100,0.99)(200,0.98)(300,0.97)
+};
+\addlegendentry{$m=0{,}9999$}
+\end{axis}
+\end{tikzpicture}
+\caption{Évolution schématique de la distance $\|\xi_t -
+  \theta_t\|_2$ pour différentes valeurs de momentum $m$.
+  Un $m$ trop faible (0{,}90) rend le professeur trop réactif et
+  instabilise les cibles. Un $m$ trop élevé (0{,}9999) ralentit
+  excessivement la convergence. La valeur $m=0{,}996$ offre le
+  meilleur compromis pour notre échelle d'entraînement.}
+\label{fig:ema_dynamics}
+\end{figure}
+ 
+% ============================================================
+\subsubsection{Fonction de Perte}
+\label{sub:loss}
+% ============================================================
+ 
+La perte est calculée exclusivement sur les positions appartenant
+au masque de prédiction $\mathcal{M}^{\text{pred}}$, afin que le
+modèle ne reçoive aucun signal d'apprentissage sur les positions
+de contexte ou de padding. Pour un batch de taille $B$, la perte
+est la \emph{Huber Loss} (ou \emph{Smooth L1 Loss}) entre les
+représentations prédites et les représentations cibles :
+\begin{equation}
+  \mathcal{L}(\theta, \phi ; \xi) =
+  \frac{1}{\sum_{i=1}^{B}|\mathcal{M}^{\text{pred}}_i|}
+  \sum_{i=1}^{B}
+  \sum_{j \in \mathcal{M}^{\text{pred}}_i}
+  \sum_{k=1}^{d}
+  \ell_{\delta}\!\left(\hat{z}_{i,j,k},\,
+    \mathrm{sg}\!\left(z^{\text{tgt}}_{i,j,k}\right)\right),
+  \label{eq:loss}
+\end{equation}
+où $\mathrm{sg}(\cdot)$ désigne l'opérateur \emph{stop-gradient}
+(pas de rétropropagation à travers $f_\xi$), et $\ell_\delta$ est
+la fonction de Huber de paramètre $\delta = 1$ :
+\[
+  \ell_\delta(a, b) =
+  \begin{cases}
+    \dfrac{1}{2}(a-b)^2          & \text{si } |a-b| \le \delta,\\[6pt]
+    \delta\!\left(|a-b| - \dfrac{\delta}{2}\right) & \text{sinon.}
+  \end{cases}
+\]
+Le choix de la Huber Loss par rapport à la MSE présente deux
+avantages dans notre contexte : (i) elle est moins sensible aux
+\emph{outliers} de représentation qui peuvent survenir sur des
+binaires malformés ou fortement obfusqués, et (ii) son comportement
+linéaire au-delà de $\delta$ accélère la phase initiale de
+l'apprentissage lorsque les représentations sont encore éloignées.
+ 
+Seuls les paramètres $\theta$ (encodeur de contexte) et $\phi$
+(prédicteur) sont mis à jour par le gradient de $\mathcal{L}$.
+Les paramètres $\xi$ de l'encodeur cible sont exclusivement mis à
+jour par~\eqref{eq:ema}.
+ 
+% ============================================================
+\subsubsection{Récapitulatif et Hyperparamètres}
+\label{sub:hyperparams}
+% ============================================================
+ 
+Le Tableau~\ref{tab:hyperparams} récapitule les hyperparamètres
+du modèle et de l'entraînement.
+ 
+\begin{table}[ht]
+\centering
+\caption{Hyperparamètres du modèle I-JEPA 1D.}
+\label{tab:hyperparams}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{llr}
+\toprule
+\textbf{Composant} & \textbf{Paramètre} & \textbf{Valeur} \\
+\midrule
+\multirow{3}{*}{Encodeur ($f_\theta$, $f_\xi$)}
+  & Dimension d'embedding $e$      & 128 \\
+  & Dimension cachée $h$           & 256 \\
+  & Dimension de sortie $d$        & 256 \\[2pt]
+\multirow{2}{*}{Prédicteur ($g_\phi$)}
+  & Dimension cachée $d_h$         & 512 \\
+  & Activation                     & GELU \\[2pt]
+\multirow{2}{*}{Masquage}
+  & Stratégie                      & Tiers consécutifs \\
+  & Ratio prédit / séquence        & $\lfloor\ell/3\rfloor$ \\[2pt]
+\multirow{3}{*}{Entraînement}
+  & Optimiseur                     & AdamW \\
+  & Taux d'apprentissage $\eta$    & $10^{-4}$ \\
+  & Taille de batch $B$            & 10 \\[2pt]
+EMA & Momentum $m$                 & 0{,}996 \\
+Perte & Fonction                   & Huber ($\delta=1$) \\
+Vocabulaire & Taille $|\mathcal{V}|$ & 371 \\
+\bottomrule
+\end{tabular}
+\end{table}

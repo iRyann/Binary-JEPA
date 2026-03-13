@@ -1,0 +1,15 @@
+\begin{abstract}
+  Face à la prolifération des malwares polymorphes, les signatures cryptographiques classiques telles que \gls{md5} ou \gls{sha256} sont obsolètes : un seul bit modifié suffit à empêcher la détection par comparaison exacte. 
+  Notre projet vise à développer un \gls{semantic_hashing} de fichiers binaires \gls{elf64}. 
+  Ce faisant, nous cherchons à produire une signature stable face à l'obfuscation, par le biais d'une architecture \gls{jepa} adaptée au traitement de séquences d'instructions. 
+    
+  À cette fin, nous isolons préalablement la sémantique du programme en traduisant (\gls{lifting}) les instructions assembleur vers la représentation intermédiaire \gls{vexir}. 
+  Cette étape s'accompagne d'une modélisation topologique en \gls{bagofpaths} permettant de pondérer l'acquis informationnel et de filtrer le bruit inhérent au mode opératoire des programmes (appels à des librairies tierces, polymorphisme compilatoire, injection de code mort). 
+    
+  Contrairement aux réseaux de graphes (\glspl{gnn}) limités par leur forte complexité temporelle, ou aux modèles génératifs de langage (\glspl{llm}/\gls{bert}) se perdant dans la prédiction exacte du bruit structurel, notre architecture force l'apprentissage par prédiction dans l'espace latent. 
+  Ainsi prétraité, le code est ingéré par un encodeur convolutif 1D entraîné de manière auto-supervisée afin d'en extraire une représentation hautement abstraite. 
+  Enfin, l'ensemble s'inscrit dans un pipeline d'ingénierie \gls{mlops} rigoureux, garantissant une optimisation matérielle de l'entraînement et intégrant un suivi précis de l'empreinte carbone.
+\end{abstract}
+
+
+\keywords{Malware Analysis \and Semantic Hashing \and Self-Supervised Learning \and \gls{vexir} \and \gls{bagofpaths} \and \gls{jepa} \and \gls{mlops}}
