@@ -36,7 +36,6 @@ Plus précisément, nos contributions principales (\textit{claims}) s'articulent
       En forçant un réseau convolutif à prédire la représentation latente des instructions masquées, le modèle apprend la sémantique profonde du chemin d'exécution tout en ignorant structurellement le code mort (\gls{junkcode}).
     
     \item \textbf{\gls{semantic_hashing} et Évaluation :} Nous introduisons une méthode de hachage sémantique efficace exploitant l'encodeur pré-entraîné.
-      En agrégeant les vecteurs des différents chemins d'une même fonction par \gls{maxpooling}, nous générons une signature globale unique, comparable quasi-instantanément via la similarité cosinus, évitant ainsi la complexité quadratique ($O(N^2)$) des réseaux de neurones sur graphes.
     
     \item \textbf{Ingénierie \gls{mlops} et Éco-responsabilité :} Nous fournissons une implémentation de niveau industriel (chargement de données \textit{Just-In-Time}, entraînement distribué en précision mixte) intégrant un suivi rigoureux de l'empreinte carbone (\gls{greenai}), démontrant la viabilité de l'approche pour des déploiements à grande échelle.
 \end{itemize}

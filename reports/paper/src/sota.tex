@@ -25,8 +25,10 @@ En parallèle des modèles séquentiels, une large part de la recherche s'est co
 Cette approche est cependant très vulnérable aux attaques altérant la topologie, telles que l'aplatissement du flux de contrôle (\textit{Control Flow Flattening} - FLA) ou l'insertion de faux blocs de base (\textit{Bogus Control Flow} - BCF).
 Pour obtenir un invariant topologique robuste, de récents travaux comme ORCAS \cite{wang2025orcas} ont proposé le Graphe Sémantique Amélioré par la Dominance (DESG).
 En se basant sur les relations de dominance (où un nœud domine un autre si tout chemin d'exécution vers le second passe par le premier) couplées aux chaînes de dépendance de données, ORCAS \cite{wang2025orcas} parvient à abstraire la structure pour résister à des déformations agressives du CFG.
-Néanmoins, l'extraction de ces graphes et l'inférence via GNN demeurent des processus coûteux et parfois sujets à l'explosion combinatoire.
-
+Néanmoins, si l'extraction d'un Graphe de Flux de Contrôle (CFG) topologique de base est aujourd'hui optimisée, l'enrichissement sémantique de ces structures (tel que le calcul systématique des arbres de dominance) et l'inférence via GNN imposent une lourde charge computationnelle. 
+Par ailleurs, d'un point de vue d'ingénierie matérielle (\textit{MLOps}), les graphes posent des défis intrinsèques majeurs. 
+Contrairement aux représentations séquentielles qui exploitent des opérations denses (GEMM) hautement optimisées sur accélérateurs matériels, les graphes requièrent des multiplications de matrices creuses (SpMM) et présentent des accès mémoire irréguliers \cite{wang2021gnnadvisor}. 
+De plus, la mise en lots (\textit{batching}) de graphes de tailles variables impose des structures de données complexes, comme l'agrégation en matrices diagonales par blocs \cite{fey2019pyg}, freinant considérablement leur passage à l'échelle sur des millions d'échantillons comparativement aux tenseurs 1D purs.
 \subsection{Optimisation du Hachage Profond et Discrétisation}
 L'objectif ultime d'un système BCSD à grande échelle est de produire un hachage binaire (une suite de 0 et de 1) permettant des recherches extrêmement rapides via des opérations CPU bas niveau (XOR, POPCOUNT).
 Cependant, la transformation d'un vecteur continu (issu d'un réseau de neurones) en valeurs discrètes pose un défi mathématique majeur : la fonction signe est non-différentiable, ce qui bloque la rétropropagation du gradient. 

@@ -50,13 +50,13 @@ L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
   },
   %% cellules de séquence
   tok/.style={
-    draw=black!35, minimum width=0.58cm, minimum height=0.58cm,
+    draw=white, minimum width=0.58cm, minimum height=0.58cm,
     inner sep=0pt, font=\scriptsize, rounded corners=1pt
   },
   %% flèches
   arr/.style={-Stealth, line width=1.0pt},
   emaArr/.style={-Stealth, line width=1.0pt, dashed, colTgt},
-  sgLbl/.style={font=\scriptsize, colTgt!80!black, rotate=90},
+  sgLbl/.style={font=\scriptsize, colTgt!80!black},
 ]
  
 % ═══════════════════════════════════════════════════════════════
@@ -102,8 +102,8 @@ L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
 \foreach \i/\col/\lbl in {
   0/colCtx!25/{\scriptsize VEX},
   1/colCtx!25/{\scriptsize OP},
-  2/white/{\scriptsize API},
-  3/white/{\scriptsize JK},
+  2/grey!5/{\scriptsize API},
+  3/grey!5/{\scriptsize JK},
   4/colTgt!30/{\scriptsize VEX},
   5/colTgt!30/{\scriptsize OP},
   6/colPad!20/{\scriptsize[P]},
@@ -124,18 +124,18 @@ L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
   {\textbf{Encodeur Cible (EMA)}\\[2pt]$f_{\xi}$};
  
 % flèches séquences → encodeurs
-\draw[arr, colCtx] (-3.4, 6.22) -- (ftheta.north);
-\draw[arr, colTgt]  (3.4, 6.22) -- (fxi.north);
+\draw[arr, colCtx] (-3.4, 5.62) -- (ftheta.north);
+\draw[arr, colTgt]  (3.4, 5.62) -- (fxi.north);
  
 % ═══════════════════════════════════════════════════════════════
 % FLÈCHE EMA (entre encodeurs, passant par le haut)
 % ═══════════════════════════════════════════════════════════════
  
 \draw[emaArr]
-  (ftheta.north east) -- ++(0.5, 0.5)
+  (ftheta.north east) 
   -- node[above, font=\scriptsize, colTgt!80!black]
        {$\xi \;\leftarrow\; m\,\xi + (1-m)\,\theta$}
-  ++(4.2, 0) -- (fxi.north west);
+  ++(3.3, 0) -- (fxi.north west);
  
 % ═══════════════════════════════════════════════════════════════
 % RANGÉE 3 — Représentations latentes
@@ -151,16 +151,16 @@ L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
 \draw[arr, colTgt] (fxi)    -- (ztgt);
  
 % stop-gradient sur la branche cible
-\node[sgLbl] at (3.85, 3.75) {stop-grad};
+\node[sgLbl] at (4.95, 3.55) {stop-grad};
 \draw[colTgt!60, dashed, line width=0.5pt]
-  (3.70, 3.44) -- (3.70, 4.17);
+  (4.20, 3.31) -- (4.20, 3.8);
  
 % ═══════════════════════════════════════════════════════════════
 % RANGÉE 4 — Prédicteur (centré)
 % ═══════════════════════════════════════════════════════════════
  
 \node[pred, fill=colPred!12, draw=colPred, text=colPred!70!black]
-  (gphi) at (0, 1.8)
+  (gphi) at (0, 1.2)
   {\textbf{Prédicteur}\\[2pt]$g_{\phi}$};
  
 % Z_ctx → prédicteur
@@ -172,7 +172,7 @@ L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
 % ═══════════════════════════════════════════════════════════════
  
 \node[repr, fill=colPred!8, draw=colPred]
-  (zhat) at (0, 0.5) {$\hat{\bm{Z}} \in \mathbb{R}^{L \times d}$};
+  (zhat) at (0, -0.3) {$\hat{\bm{Z}} \in \mathbb{R}^{L \times d}$};
  
 \draw[arr, colPred] (gphi) -- (zhat);
  
@@ -181,7 +181,7 @@ L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
 % ═══════════════════════════════════════════════════════════════
  
 \node[loss, fill=colLoss!8, draw=colLoss, text=colLoss!80!black]
-  (loss_node) at (0, -0.85)
+  (loss_node) at (0, -1.55)
   {$\mathcal{L} = \mathrm{HuberLoss}\!\left(
       \hat{\bm{Z}}_{\mathcal{M}},\;
       \mathrm{sg}\!\left(\bm{Z}^{\mathrm{tgt}}_{\mathcal{M}}\right)
@@ -192,9 +192,8 @@ L'architecture globale est illustrée en Figure~\ref{fig:ijepa_overview}.
  
 % Z_tgt → perte (descend, puis va à gauche vers la perte)
 \draw[arr, colTgt]
-  (ztgt.south) -- ++(0,-0.35) -- ++(0,-1.35)
-  -| (loss_node.east);
- 
+  (ztgt.south) |- (loss_node.east);
+
 \end{tikzpicture}
 \caption{Architecture I-JEPA 1D. La séquence masquée $\tilde{\bm{x}}$
   alimente l'encodeur de contexte $f_\theta$ (bleu) ; la séquence
@@ -290,20 +289,20 @@ exclusivement par EMA (Section~\ref{sub:ema}).
   (emb) at (0,0) {Embedding\\$|\mathcal{V}| \times e$};
  
 % conv1
-\node[layer, fill=colCtx!15, draw=colCtx, right=1.0cm of emb]
+\node[layer, fill=colCtx!15, draw=colCtx, right=1.5cm of emb]
   (c1) {\texttt{Conv1D}\\$k=5,\,p=2$\\$e \to h$\\\texttt{GELU}};
  
 % conv2
-\node[layer, fill=colCtx!20, draw=colCtx, right=1.0cm of c1]
+\node[layer, fill=colCtx!20, draw=colCtx, right=1.5cm of c1]
   (c2) {\texttt{Conv1D}\\$k=5,\,p=2$\\$h \to h$\\\texttt{GELU}};
  
 % conv3
-\node[layer, fill=colCtx!28, draw=colCtx, right=1.0cm of c2]
+\node[layer, fill=colCtx!28, draw=colCtx, right=1.5cm of c2]
   (c3) {\texttt{Conv1D}\\$k=3,\,p=1$\\$h \to d$};
  
 % sortie
 \node[draw=colCtx, fill=colCtx!8, rounded corners=3pt,
-      minimum width=1.6cm, minimum height=0.55cm, right=1.0cm of c3]
+      minimum width=1.6cm, minimum height=0.55cm, right=1.5cm of c3]
   (out) {$\bm{Z} \in \mathbb{R}^{L \times d}$};
  
 % flèches + dimensions
@@ -467,7 +466,7 @@ séquence de longueur réelle arbitraire $\ell$.
 \draw[decorate, decoration={brace,amplitude=5pt}]
   (4*0.65+0.02, 2.4) -- (8*0.65, 2.4)
   node[midway, above=5pt, font=\tiny\bfseries, colMask!80!black]
-    {Tier 2 — Masqué (pré-cible)};
+    {Tier 2 — Pré-cible};
 \draw[decorate, decoration={brace,amplitude=5pt}]
   (8*0.65+0.02, 2.4) -- (12*0.65, 2.4)
   node[midway, above=5pt, font=\tiny\bfseries, colLoss!70!black]
@@ -478,11 +477,11 @@ séquence de longueur réelle arbitraire $\ell$.
     {Padding};
  
 % -- Légende frontières --
-\draw[dashed, gray] (4*0.65+0.01, -0.15) -- (4*0.65+0.01, 2.7)
+\draw[dashed, gray] (4*0.65+0.01, -0.15) -- (4*0.65+0.01, 2.9)
   node[above, font=\tiny] {$\lfloor\ell/3\rfloor$};
-\draw[dashed, gray] (8*0.65+0.01, -0.15) -- (8*0.65+0.01, 2.7)
+\draw[dashed, gray] (8*0.65+0.01, -0.15) -- (8*0.65+0.01, 2.9)
   node[above, font=\tiny] {$\lfloor 2\ell/3\rfloor$};
-\draw[dashed, gray!50] (12*0.65+0.01, -0.15) -- (12*0.65+0.01, 2.7)
+\draw[dashed, gray!50] (12*0.65+0.01, -0.15) -- (12*0.65+0.01, 2.9)
   node[above, font=\tiny] {$\ell$};
  
 \end{tikzpicture}

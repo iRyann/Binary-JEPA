@@ -25,7 +25,7 @@ L'opérateur $\Phi$ applique les transformations suivantes sur les opérandes et
     \item \textbf{Résolution des appels terminaux :} Si un bloc se termine par un saut vers la table de liaison (PLT) ou un appel système, l'intention est explicitement capturée dans la séquence finale via un token dédié (ex: $\texttt{<API\_PUTS>}$ ou $\texttt{<SYSCALL\_EXECVE>}$). Dans le cas contraire, le type de saut (\textit{JumpKind}) est conservé (ex: $\texttt{JK\_RET}$, $\texttt{JK\_BORING}$).
 \end{itemize}
 
-Grâce à cette projection $\Phi$, chaque chemin $p = (v_1, \dots, v_L)$ est aplati en une unique séquence de tokens 1D de longueur $S$, constituant l'entrée de notre modèle I-JEPA. Ce dictionnaire minimaliste (moins de 200 tokens) garantit un espace d'encodage dense et force l'architecture neuronale à déduire la sémantique de l'algorithme à partir du contexte global de la séquence, plutôt qu'en mémorisant des adresses spécifiques.
+Grâce à cette projection $\Phi$, chaque chemin $p = (v_1, \dots, v_L)$ est aplati en une unique séquence de tokens 1D de longueur $S$, constituant l'entrée de notre modèle I-JEPA. Ce dictionnaire minimaliste garantit un espace d'encodage dense et force l'architecture neuronale à déduire la sémantique de l'algorithme à partir du contexte global de la séquence, plutôt qu'en mémorisant des adresses spécifiques.
 
 % --- SCHÉMA TIKZ DU PIPELINE ---
 \begin{figure}[htbp]
@@ -64,6 +64,15 @@ Grâce à cette projection $\Phi$, chaque chemin $p = (v_1, \dots, v_L)$ est apl
 \label{fig:pipeline_extraction}
 \end{figure}
 
+\subsubsection{Stabilité}\label{sec:Stabilité} % (fold)
+
+\paragraph{Hypothèse}\label{par:Hypothèse} % (fold)
+Modélisation offrant une résilience naturelle face aux obfuscations modifiant le graphe de contrôle (CFG).
+% paragraph Hypothèse (end)% subsubsection Stabilité (end)
+
+Preuve ?
+
+% paragraph  (end)
 \subsubsection{Robustesse Opérationnelle MLOps}
 L'analyse statique de malwares est un processus notoirement instable : les techniques d'obfuscation avancées (comme UPX ou Themida) peuvent forcer les moteurs symboliques ou de levage dans des boucles infinies ou provoquer des épuisements de mémoire RAM (OOM - \textit{Out-Of-Memory}). Pour garantir le passage à l'échelle sur des millions d'échantillons, notre pipeline est encapsulé dans une architecture multiprocessus robuste exploitant un isolement temporel strict (\textit{hard-timeout} via signaux SIGTERM). De plus, un cache de blocs intra-fonction garantit qu'une adresse n'est soulevée en VEX qu'une seule fois, même si elle participe à des centaines de chemins, optimisant drastiquement le temps d'extraction global.
 % subsection Extraction et Représentation des Données (end)
