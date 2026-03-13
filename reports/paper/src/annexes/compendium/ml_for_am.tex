@@ -1,11 +1,31 @@
 \subsection{IA et Cyberdéfense}\label{sub:IA et Cyberdéfense} % (fold)
 
+\subsubsection{Généralités}\label{sec:Généralités} % (fold)
 Les méthodes de \gls{ml} et \gls{dl} sont devenus des composants critiques de l'écosystème de détection et de réponse aux cybermenaces \cite{nnaka_ai_threat_detection_2025}, notamment de part leur vélocité et leur scalabilité, permettant une industrialisation et une amélioration constante. 
 En l'occurrence, ces derniers répondent précisemment aux objectifs suivants :
 \begin{itemize}
-  \item \textbf{Identification}
-  \item \textbf{Classification et triage}
-  \item \textbf{Automatisation}
+  \item \textbf{Identification} Les modèles d'apprentissage automatique et profond offrent des capacités dynamiques permettant de distinguer les logiciels sains des logiciels malveillants de manière très efficace, y compris lorsqu'il s'agit de nouvelles variantes inédites (attaques zero-day) ou de malwares polymorphes et obfusqués
+  \item \textbf{Classification et triage} Face à l'afflux quotidien de milliers d'échantillons de malwares, les entreprises de sécurité s'appuient sur l'automatisation pour le tri à grande échelle. 
+    Des algorithmes d'apprentissage non supervisé et de hachage sémantique permettent de regrouper automatiquement les malwares présentant des comportements ou des structures similaires (clustering). 
+    Cela permet d'associer un nouvel échantillon à une famille de malwares déjà connue, évitant ainsi aux analystes de perdre du temps sur des menaces déjà documentées
+  \item \textbf{Automatisation} Historiquement, les détecteurs s'appuyaient sur des signatures exactes ou des règles manuelles facilement contournables. 
+    Aujourd'hui, l'apprentissage profond avec l'utilisation de réseaux de neurones complexes (réseaux récurrents, graphes, Transformers) permet de transformer automatiquement le code binaire brut en vecteurs mathématiques (embeddings) représentant sa sémantique. 
+    Les modèles apprennent ces représentations de bout en bout sans nécessiter de connaissances préalables complexes ou d'intervention humaine.
 \end{itemize}
 
+% subsubsection Généralités (end)
+
+\subsubsection{Industrie}\label{sec:Industrie} % (fold)
+Parmis les solutions de cybersécurité modernes, plusieurs intègrent des techniques de machine learning afin d'améliorer la détection et l'analyse des menaces \cite{yussuf2024mlcyber}.
+
+Par exemple, la solution \emph{CylancePROTECT} utilise des modèles de machine learning supervisés pour analyser le comportement des fichiers et identifier les activités malveillantes avant leur exécution.
+Le système est entraîné sur de grands ensembles de données afin de reconnaître à la fois des menaces connues et inconnues. 
+
+Un autre exemple est la plateforme \emph{CrowdStrike Falcon}, qui combine des modèles de machine learning avec des techniques d'analyse comportementale pour assurer la protection des terminaux. 
+Ces modèles permettent notamment de surveiller les comportements des utilisateurs et de détecter des anomalies susceptibles d'indiquer un incident de sécurité.
+
+Enfin, la plateforme \emph{Vectra AI Cognito} exploite également des techniques de similaires pour améliorer la détection des menaces sur les réseaux d'entreprise.
+Elle s'appuie notamment sur l'analyse comportementale et la détection d'anomalies afin d'identifier des activités suspectes et prioriser les incidents de sécurité. 
+
+% subsubsection Industrie (end)
 % subsection IA et Cyberdéfense (end)
