@@ -8,6 +8,7 @@ from pathlib import Path
 import torch.nn.functional as F
 
 from src.models.encoder import Conv1DEncoder
+from src.models.predictor import Predictor
 import torch
 import yaml
 from src.utils._logging import CSVLogger
@@ -110,7 +111,8 @@ def main(config: dict):
 
     # ── Device & Model ────────────────────────────────────────────────────────
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = Conv1DEncoder(vocab_size=len(vocab)).to(device)
+    encoder = Conv1DEncoder(vocab_size=len(vocab)).to(device)
+    predictor = Predictor(256).to(device)
 
     # ── Checkpoint ────────────────────────────────────────────────────────────
     if os.path.isfile(checkpoint_path):
@@ -118,7 +120,8 @@ def main(config: dict):
         with open(checkpoint_path, "rb") as f:
             checkpoint = torch.load(f)
 
-        model.load_state_dict(checkpoint["encoder"])
+        encoder.load_state_dict(checkpoint["encoder"])
+        predictor.load_state_dict(checkpoint["predictor"])
         logger.info("Checkpoint chargé")
 
     # ── DataLoader ────────────────────────────────────────────────────────────
@@ -147,16 +150,23 @@ def main(config: dict):
         for input_index2 in range(input_index1,min(input_index1+10,len(data))):
             input_vector2 = data[input_index2]
             # calcul de non ressemblance naive (nombre de token inégaux / nombre de tokens)
-            naive_unlikeliness = torch.sum(input_vector1 != input_vector2)/max(torch.sum(input_vector1 != 0),torch.sum(input_vector2!= 0))
+            real_length1 = torch.sum(input_vector1 != 0)
+            real_length2 = torch.sum(input_vector2 != 0)
+            naive_unlikeliness = torch.sum(input_vector1 != input_vector2)/max(real_length1,real_length2)
             if (naive_unlikeliness < 0.40 and naive_unlikeliness != 0) or naive_unlikeliness >= 0.90:
-                embedding1 = torch.flatten(model(input_vector1))
-                embedding2 = torch.flatten(model(input_vector2))
-                embedding1 /= torch.norm(embedding1)
-                embedding2 /= torch.norm(embedding2)
+                input_vector1[0][real_length1] = 2
+                input_vector2[0][real_length2] = 2
+                embedding1 = encoder(input_vector1)
+                embedding2 = encoder(input_vector2)
+                prediction1 = predictor(embedding1)[0][real_length1]
+                prediction2 = predictor(embedding2)[0][real_length2]
+                prediction1 /= torch.norm(prediction1)
+                prediction2 /= torch.norm(prediction2)
 
-                similarity = F.cosine_similarity(embedding1,embedding2, dim=-1)
-                distance = torch.norm(embedding1 - embedding2, dim=-1)
-                dot_product = torch.sum(embedding1 * embedding2, dim=-1)
+                similarity = F.cosine_similarity(prediction1,prediction2, dim=-1)
+                distance = torch.norm(prediction1 - prediction2, dim=-1)
+                dot_product = torch.sum(prediction1 * prediction2, dim=-1)
+                
                 metrics.append((input_index1,
                                 input_index2,
                                 naive_unlikeliness.item(),

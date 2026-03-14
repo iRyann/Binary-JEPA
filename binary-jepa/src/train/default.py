@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import src.masks.noiseproof as mask
+import src.masks.last_token as mask
 import torch
 import yaml
 from codecarbon import track_emissions
@@ -195,7 +195,7 @@ def main(config: dict):
             unit="batch",
             leave=False,
         ):
-            input_mask, pred_mask = mask.generate(batch, batch.shape[0])
+            input_mask, pred_mask = mask.generate(batch)
 
             loss = model(batch, input_mask, pred_mask)
             loss_meter.update(loss.item(), batch.size(0))
