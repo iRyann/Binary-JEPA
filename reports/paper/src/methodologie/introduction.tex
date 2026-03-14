@@ -13,7 +13,7 @@ Ces interrogations sont évidemment au fondement de l'embedding de code binaire,
 
 Contrairement à la majorité des travaux de l'état de l'art qui traitent l'embedding comme un objectif premier et explicite --- souvent contraint par des tâches de reconstruction syntaxique (Masked Language Modeling) ou d'isomorphisme de graphes ---, notre approche opère un renversement de paradigme.
 En nous appuyant sur l'architecture \gls{ijepa}\cite{assran2023self}, nous ne forçons pas la création d'un espace vectoriel par mimétisme syntaxique. 
-L'architecture apprend à prédire la représentation latente d'un bloc de code manquant en se basant sur son contexte. 
+L'architecture apprend à prédire la \emph{représentation latente} d'un bloc de code manquant en se basant sur son contexte. 
 Dès lors, pour minimiser son erreur de prédiction, le modèle est mathématiquement contraint d'ignorer le bruit stochastique (les variations d'obfuscation, le code mort) pour ne capter que l'essence comportementale du programme.
 L'embedding sémantique n'est plus l'artefact direct d'une fonction de hachage ; il jaillit de façon sous-jacente comme la seule structure topologique capable de lier le contexte à son évolution. 
 L'intention première du programme se retrouve ainsi cristallisée, non pas parce qu'on a cherché à l'encoder, mais parce qu'elle était la condition sine qua non pour la prédire.
@@ -24,7 +24,7 @@ Naturellement, même si l'intention est louable, elle n'en demeure pas moins suj
 Car s'il nous faut révéler les invariants sémantiques d'une part — c'est-à-dire ce qui distingue fondamentalement un algorithme d'un autre —, il nous faut aussi et surtout travailler dans un \textit{espace de généralisation}. 
 Autrement dit, il s'agit de proposer au modèle les données sous un format susceptible de permettre l'apprentissage de cette compréhension ontologique, tout en ne se polarisant pas sur les singularités propres à la compilation, à l'environnement, ou aux pratiques d'obfuscation.
 
-De plus, il serait irréaliste de prétendre capturer l'exhaustivité du comportement algorithmique d'un programme sur la seule base de son code statique. Néanmoins, cette contrainte de l'analyse statique est inhérente à notre démarche, car elle constitue l'essence même de la notion de hachage de fichier. Ce paradigme impose donc un double défi :
+De plus, il serait irréaliste de prétendre capturer l'exhaustivité du comportement algorithmique d'un programme sur la seule base de son code statique. Néanmoins, cette contrainte de l'analyse statique\footnote{Pour un rappel des fondements de l'analyse statique, le lecteur pourra se référer à l'Annexe \ref{sub:Analyse Statique}} est inhérente à notre démarche, car elle constitue l'essence même de la notion de hachage de fichier. Ce paradigme impose donc un double défi :
 \begin{enumerate}
   \item La représentation des données doit être suffisamment générique pour généraliser, sans pour autant perdre l'ipséité nécessaire à la discrimination lors de l'entraînement.
   \item L'analyse doit s'opérer de manière purement statique, sans exécution du binaire.
