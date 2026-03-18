@@ -3,3 +3,5 @@ tqdm
 argparse
 pyyaml
 codecarbon
+huggingface_hub
+matplotlib
