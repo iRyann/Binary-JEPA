@@ -1,0 +1,279 @@
+\subsection{Expérimentation 0 — Aperçu préliminaire : validation qualitative du pipeline}
+\label{sub:exp0}
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsubsection{Intention et enjeux}
+
+Avant d'engager un protocole d'évaluation quantitatif complet, il est
+nécessaire de s'assurer que le pipeline d'extraction et d'encodage produit des
+représentations cohérentes avec les propriétés théoriques attendues d'un
+encodeur de type JEPA : (i) \emph{invariance à la compilation} — deux variants
+compilés d'un même programme devraient être proches dans l'espace latent — et
+(ii) \emph{séparabilité inter-programmes} — deux utilitaires de sémantique
+distincte devraient être éloignés indépendamment du compilateur utilisé.
+
+Cette première expérimentation constitue une \emph{preuve de concept}
+qualitative. Elle ne vise pas à mesurer une performance absolue, mais à valider
+que la chaîne de traitement complète — compilation, extraction des
+Bag-of-Paths, encodage par \texttt{elf64ctx}, comparaison et visualisation —
+produit des signaux interprétables et alignés avec les hypothèses du modèle.
+Son rôle est d'ancrer les expérimentations ultérieures : tout raffinage
+méthodologique (affinement du corpus, modification de la stratégie de masquage,
+introduction de métriques quantitatives) s'appuiera sur ce point de référence
+qualitatif.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsubsection{Méthodologie}
+
+Le pipeline expérimental se décompose en quatre étapes automatisées,
+implémentées dans le répertoire \texttt{experiments/0-firstOverview/}.
+
+\paragraph{Étape 1 — Compilation des cibles.}
+Quatre utilitaires GNU Coreutils (\texttt{cat}, \texttt{cp}, \texttt{ls},
+\texttt{mv}) sont compilés selon une grille réduite de trois variantes :
+\texttt{gcc~-O0}, \texttt{gcc~-O3} et \texttt{clang~-Os}. Chaque binaire est
+strippé de ses symboles (\texttt{strip~--strip-all}), simulant ainsi les
+conditions typiques d'analyse de code malveillant. Le résultat est un corpus
+de $4 \times 3 = 12$ fichiers ELF64.
+
+\paragraph{Étape 2 — Extraction des embeddings.}
+L'outil \texttt{elf64ctx} est invoqué sur chaque binaire en mode encodage
+(\texttt{-E}). Pour chaque fichier ELF, il extrait les \gls{cfg}
+intra-procéduraux via \texttt{angr}, génère les
+Bag-of-Paths par exploration DFS bornée (max.\ 500 chemins, max.\ 50 blocs
+par chemin), projette les séquences VEX vers le vocabulaire canonique
+$\mathcal{V}$, et encode chaque chemin via le Conv1DEncoder pré-entraîné. Les
+embeddings, normalisés en norme $\ell_2$, sont sérialisés au format JSON
+(sérialisation pickle + encodage Base64) pour chaque fichier ELF.
+
+\paragraph{Étape 3 — Comparaison par paires.}
+Pour chacun des $\binom{12}{2} = 66$ couples de binaires, \texttt{elf64ctx}
+est invoqué en mode comparaison (\texttt{--compare}). La distance euclidienne
+est calculée dans l'espace latent 256-dimensionnel entre toutes les paires
+$(f_i,\,f_j)$ de fonctions issues des deux binaires, formant une matrice de
+proximité de dimensions $|F_1| \times |F_2|$.
+
+\paragraph{Étape 4 — Visualisation.}
+L'option \texttt{--plot} génère une heatmap pour chaque matrice de distances,
+en colormap \texttt{plasma\_r} : les teintes chaudes (proches de zéro)
+indiquent une forte proximité sémantique, les teintes froides une forte
+divergence. La Figure~\ref{fig:exp0_pipeline} résume l'enchaînement des étapes.
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Figure : pipeline de l'expérimentation
+% ──────────────────────────────────────────────────────────────────────────────
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=5pt, minimum width=2.6cm,
+              minimum height=0.8cm, align=center, font=\small,
+              line width=0.7pt},
+  arr/.style={-Stealth, line width=0.8pt},
+  lbl/.style={font=\tiny, gray!70!black},
+]
+  \node[box, fill=colCtx!15,  draw=colCtx!60]  (comp) at (0,0)
+    {Compilation\\{\scriptsize\texttt{gcc}/\texttt{clang}}};
+  \node[box, fill=colTgt!15,  draw=colTgt!60]  (emb)  at (3.4,0)
+    {Extraction\\{\scriptsize\texttt{elf64ctx -E}}};
+  \node[box, fill=colPred!15, draw=colPred!60] (cmp)  at (6.8,0)
+    {Comparaison\\{\scriptsize\texttt{--compare}}};
+  \node[box, fill=colLoss!15, draw=colLoss!60] (viz)  at (10.2,0)
+    {Visualisation\\{\scriptsize\texttt{--plot}}};
+
+  \draw[arr] (comp) -- (emb)  node[midway, above, lbl] {12 ELF};
+  \draw[arr] (emb)  -- (cmp)  node[midway, above, lbl] {12 JSON};
+  \draw[arr] (cmp)  -- (viz)  node[midway, above, lbl] {66 matrices};
+
+  \node[lbl, below=6pt of comp] {4 utils $\times$ 3 variants};
+  \node[lbl, below=6pt of emb]  {Bag-of-Paths + Conv1D};
+  \node[lbl, below=6pt of cmp]  {distances $\ell_2$ dans $\mathbb{R}^{256}$};
+  \node[lbl, below=6pt of viz]  {heatmaps \texttt{plasma\_r}};
+\end{tikzpicture}
+\caption{Pipeline de l'expérimentation 0. Les 12 binaires ELF produits à
+  l'étape de compilation transitent successivement par l'extraction d'embeddings,
+  la comparaison exhaustive par paires et la génération de heatmaps.}
+\label{fig:exp0_pipeline}
+\end{figure}
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsubsection{Résultats — Analyse des heatmaps}
+
+Les figures ci-après présentent cinq heatmaps représentatives sélectionnées
+parmi les 66 générées. Elles couvrent les deux régimes d'intérêt : les
+\emph{paires positives} (même programme, compilations distinctes) et les
+\emph{paires négatives} (programmes différents), ainsi qu'un cas mixte
+combinant les deux sources de divergence.
+
+\paragraph{Paires positives — résilience à la variation de compilation.}
+Les Figures~\ref{fig:exp0_cat_gcc0} et~\ref{fig:exp0_cat_gcc3} mettent en
+regard \texttt{cat} compilé avec \texttt{clang~-Os} et, respectivement,
+\texttt{gcc~-O0} et \texttt{gcc~-O3} : même utilitaire, compilateurs et
+niveaux d'optimisation distincts. Dans les deux cas, l'échelle des distances
+se maintient dans l'intervalle $[0,\,1.0]$ et les matrices révèlent des
+\textbf{zones localement chaudes} ($\approx 0.2$--$0.4$), correspondant à des
+sous-ensembles de fonctions que le modèle a appris à rapprocher malgré la
+transformation compilateur. Ces îlots de chaleur attestent d'une
+\emph{invariance sémantique partielle} acquise lors du pré-entraînement : les
+Bag-of-Paths preservent suffisamment de structure comportementale en
+\gls{vexir} pour que des fonctions compilées différemment partagent un
+voisinage dans l'espace latent.
+
+On notera l'absence d'une diagonale chaude explicite, ce qui est attendu :
+les adresses de fonctions ne sont pas ordonnées de façon cohérente entre deux
+binaires distincts, et certaines fonctions peuvent être inlinées, fusionnées
+ou scindées selon le niveau d'optimisation.
+
+\paragraph{Paires négatives — séparabilité inter-utilitaires.}
+Les Figures~\ref{fig:exp0_cat_cp_cl} et~\ref{fig:exp0_cat_mv_cl} opposent
+\texttt{cat~(clang~-Os)} respectivement à \texttt{cp~(clang~-Os)} et
+\texttt{mv~(clang~-Os)} : utilitaires différents, compilateur identique. Ces
+paires affichent des matrices uniformément froides dans l'intervalle $[0.6,\,
+1.0]$, illustrant que le modèle positionne des programmes de sémantique
+distincte dans des régions éloignées de l'espace latent, même lorsque le
+compilateur est identique.
+
+\paragraph{Cas mixte — divergence super-additive.}
+La Figure~\ref{fig:exp0_cat_cp_gcc0} compare \texttt{cat~(clang~-Os)} à
+\texttt{cp~(gcc~-O0)} : deux utilitaires \emph{différents} compilés avec des
+\emph{compilateurs et optimisations différents}. L'échelle des distances atteint
+$[0,\,3.0]$, soit un écart trois fois supérieur à celui observé dans les autres
+comparaisons. Ce résultat suggère que la combinaison de deux sources de
+divergence — sémantique fonctionnelle et style compilateur — amplifie la
+séparation dans l'espace latent de façon \textbf{super-additive}, propriété
+désirable pour une utilisation en détection de similarité binaire.
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Heatmaps : 2 paires positives
+% ──────────────────────────────────────────────────────────────────────────────
+\begin{figure}[ht]
+  \centering
+  \begin{minipage}[t]{0.47\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{%
+      ../../experiments/0-firstOverview/data/comparisons/cat_clang_Os_vs_cat_gcc_O0.png}
+    \caption{\textbf{Paire positive.} \texttt{cat~(clang~-Os)} vs
+      \texttt{cat~(gcc~-O0)}. Même sémantique, compilateurs distincts.
+      Distances dans $[0,\,1.0]$ ; îlots chauds ($\approx\!0.2$--$0.4$)
+      témoignant d'une invariance partielle à la compilation.}
+    \label{fig:exp0_cat_gcc0}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.47\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{%
+      ../../experiments/0-firstOverview/data/comparisons/cat_clang_Os_vs_cat_gcc_O3.png}
+    \caption{\textbf{Paire positive.} \texttt{cat~(clang~-Os)} vs
+      \texttt{cat~(gcc~-O3)}. Niveau d'optimisation agressif côté GCC.
+      Motif analogue : l'invariance persiste malgré l'inlining intensif de
+      \texttt{-O3}.}
+    \label{fig:exp0_cat_gcc3}
+  \end{minipage}
+\end{figure}
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Heatmaps : 2 paires négatives (même compilateur)
+% ──────────────────────────────────────────────────────────────────────────────
+\begin{figure}[ht]
+  \centering
+  \begin{minipage}[t]{0.47\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{%
+      ../../experiments/0-firstOverview/data/comparisons/cat_clang_Os_vs_cp_clang_Os.png}
+    \caption{\textbf{Paire négative.} \texttt{cat~(clang~-Os)} vs
+      \texttt{cp~(clang~-Os)}. Compilateur identique, sémantique distincte.
+      Matrice uniformément froide dans $[0.6,\,1.0]$ : bonne séparabilité
+      inter-utilitaires.}
+    \label{fig:exp0_cat_cp_cl}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.47\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{%
+      ../../experiments/0-firstOverview/data/comparisons/cat_clang_Os_vs_mv_clang_Os.png}
+    \caption{\textbf{Paire négative.} \texttt{cat~(clang~-Os)} vs
+      \texttt{mv~(clang~-Os)}. Même compilateur, programmes distincts.
+      Résultat cohérent avec la Figure~\ref{fig:exp0_cat_cp_cl} : le modèle
+      maintient la séparation sur plusieurs utilitaires négatifs.}
+    \label{fig:exp0_cat_mv_cl}
+  \end{minipage}
+\end{figure}
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Heatmap : cas mixte super-additif
+% ──────────────────────────────────────────────────────────────────────────────
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.55\linewidth]{%
+    ../../experiments/0-firstOverview/data/comparisons/cat_clang_Os_vs_cp_gcc_O0.png}
+  \caption{\textbf{Cas mixte — divergence super-additive.}
+    \texttt{cat~(clang~-Os)} vs \texttt{cp~(gcc~-O0)}. Sémantique différente
+    \emph{et} compilateurs différents. L'échelle des distances atteint
+    $[0,\,3.0]$, soit un facteur $\approx\!3\times$ supérieur aux paires
+    négatives à compilateur identique. La combinaison des deux sources de
+    divergence amplifie la séparation dans l'espace latent de façon
+    super-additive.}
+  \label{fig:exp0_cat_cp_gcc0}
+\end{figure}
+
+% ──────────────────────────────────────────────────────────────────────────────
+\paragraph{Synthèse.}
+Ces observations valident qualitativement deux propriétés attendues d'un
+encodeur JEPA entraîné sur du VEX IR : (i) une \textbf{invariance partielle à
+la compilation} pour un même programme, se manifestant par le rapprochement
+des représentations dans les paires positives ; (ii) une \textbf{séparabilité
+inter-programmes}, renforcée lorsque les sources de variabilité s'accumulent.
+Les limites — absence de diagonale franche, proximité résiduelle sur certaines
+paires négatives à compilateur identique — sont cohérentes avec un modèle
+entraîné en preuve de concept sur un corpus de taille restreinte.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsubsection{Limites et perspectives}
+
+Cette expérimentation appelle plusieurs observations critiques qui motivent les
+expérimentations futures.
+
+\paragraph{Absence de référence assembleur.}
+La principale faiblesse de cet essai est l'absence de \textbf{mise en
+correspondance directe entre les représentations assembleur et les embeddings
+produits}. Les heatmaps permettent d'observer la structure globale de l'espace
+latent, mais elles ne permettent pas de répondre à la question suivante : les
+fonctions que le modèle juge proches sont-elles effectivement similaires au
+niveau du code désassemblé ? À l'inverse, les régions froides correspondent-elles
+à des fonctions dont l'assembleur diffère structurellement ?
+
+En l'absence d'un \textbf{ancrage corrélationnel visuel} — par exemple une
+visualisation côte à côte de l'alignement fonctionnel assembleur et de la
+heatmap de distances — il est impossible de distinguer une invariance
+sémantique apprise d'un artefact d'encodage (effondrement de représentations
+ou biais de distance systématique). Cet ancrage constitue le prérequis
+méthodologique des expérimentations futures : avant de comparer des métriques
+de similarité agrégées, il est nécessaire de s'assurer que les voisinages
+latents correspondent à des voisinages sémantiques vérifiables dans
+l'assembleur.
+
+\paragraph{Absence de métriques quantitatives.}
+Les heatmaps sont interprétées qualitativement. Aucune métrique formelle —
+précision de récupération (\textit{recall@k}), AUC sur un classifieur
+paires-positives/négatives, \textit{mean average precision} — n'est calculée.
+L'évaluation reste donc subjective et ne permet pas de comparaison rigoureuse
+entre configurations d'entraînement.
+
+\paragraph{Corpus minimal.}
+Seuls quatre utilitaires et trois variantes de compilation sont utilisés
+($12$ binaires, $66$ paires). Ce sous-corpus ne couvre pas la diversité
+sémantique du dataset complet ($1\,060$ ELF) et peut exhiber des biais de
+sélection. En particulier, \texttt{cat}, \texttt{cp}, \texttt{ls} et
+\texttt{mv} partagent des primitives de bas niveau (appels à
+\texttt{<API\_WRITE>}, \texttt{<SYSCALL\_READ>}) qui pourraient introduire une
+proximité résiduelle non représentative.
+
+\paragraph{Perspectives.}
+Ces limites définissent le programme des expérimentations suivantes. La
+priorité est l'introduction d'un protocole d'évaluation quantitatif (métriques
+de récupération) couplé à un ancrage assembleur : pour un ensemble de paires
+de fonctions, comparer leur distance dans l'espace latent à une distance de
+référence calculée sur leur représentation \gls{vexir} tokenisée (similarité
+de Jaccard sur les n-grammes de tokens, par exemple). Cet ancrage permettra de
+mesurer dans quelle mesure l'espace latent capture des distances sémantiquement
+significatives, et non de simples corrélations de surface liées au compilateur
+ou à la taille des fonctions.
