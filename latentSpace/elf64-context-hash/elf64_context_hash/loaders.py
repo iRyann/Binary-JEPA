@@ -32,14 +32,14 @@ def load_vocabulary(vocab_path: str | Path = DEFAULT_VOCAB_PATH) -> dict:
 # load encoder from checkpoint
 def load_encoder(vocab_size : int = DEFAULT_VOCAB_SIZE, checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PATH) -> Conv1DEncoder:
     model = Conv1DEncoder(vocab_size)
-    checkpoint = load_model(checkpoint_path)
+    checkpoint = load_model(checkpoint_path, map_location="cpu")
     model.load_state_dict(checkpoint["encoder"])
     return model
 
 # load predictor from checkpoint
 def load_predictor(dim : int = DEFAULT_PREDICTOR_DIM, checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PATH) -> Predictor:
     model = Predictor(dim)
-    checkpoint = load_model(checkpoint_path)
+    checkpoint = load_model(checkpoint_path, map_location="cpu")
     model.load_state_dict(checkpoint["predictor"])
     return model
 
