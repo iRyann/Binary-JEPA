@@ -1,0 +1,77 @@
+
+════════════════════════════════════════════════════════════
+ DIAGNOSTIC DATASET BINARY-JEPA
+════════════════════════════════════════════════════════════
+
+── 1. VOLUME ──────────────────────────────────────────────
+  Fichiers JSONL      :      1,000
+  Chemins totaux      :    950,474
+  Chemins uniques     :    241,548  (25.4%)
+  Doublons            :    708,926  (74.6%)
+  Tokens totaux       : 318,252,815
+  Tokens distincts    :        370
+  Fonctions uniques   :    268,733
+
+── 2. DISTRIBUTION DES TOKENS ─────────────────────────────
+  Entropie de Shannon : 3.528 bits
+  Max théorique       : 8.531 bits
+  Utilisation vocab   : 41.4%
+
+  Top  5 tokens →  67.8% du corpus
+  Top 10 tokens →  86.4% du corpus
+  Top 20 tokens →  98.9% du corpus
+  Top 50 tokens → 100.0% du corpus
+
+  Token                                    count       %
+  ----------------------------------- ----------  ------
+  VEX_REG_WRITE                       87,284,172   27.4%
+  VEX_WrTmp                           48,714,871   15.3%
+  VEX_OP_64T                          29,324,393    9.2%
+  VEX_REG_READ                        28,381,643    8.9%
+  VEX_OP_ADD                          22,126,718    7.0%
+  VEX_LOAD                            13,433,327    4.2%
+  JK_BORING                           12,026,373    3.8%
+  VEX_STORE                           11,338,412    3.6%
+  VEX_OP_1UT                          11,240,549    3.5%
+  VEX_OP_32U                          11,130,690    3.5%
+  VEX_OP_CMP                          10,939,182    3.4%
+  VEX_EXIT_COND                       10,877,103    3.4%
+  VEX_OP_SUB                           5,879,626    1.8%
+  VEX_OP_8UT                           4,439,606    1.4%
+  VEX_OP_AND                           4,145,778    1.3%
+  VEX_Ist_AbiHint                        892,982    0.3%
+  VEX_OP_SHR                             779,235    0.2%
+  VEX_OP_SHL                             626,305    0.2%
+  VEX_OP_MUL                             562,197    0.2%
+  JK_CALL                                466,573    0.1%
+
+── 3. SIGNAL / BRUIT (tokens structurels VEX) ─────────────
+  Tokens structurels (WrTmp, type-casts...) :  33.5%
+  Tokens sémantiques (ops, mem, flow...)    :  66.5%
+
+── 4. LONGUEUR DES CHEMINS ─────────────────────────────────
+  min    :        1
+  p10    :       20
+  p25    :       59
+  médiane:      263
+  p75    :      461
+  p90    :      760
+  p99    :     1433
+  max    :    22930
+
+── 5. DIVERSITÉ PAR FONCTION ───────────────────────────────
+  Fonctions analysées              :  268,733
+  Ratio unique/total — p25 / p50 / p75 :
+    1.000  /  1.000  /  1.000
+  Fonctions quasi-100% doublons    :        0  (0.0%)
+  Fonctions < 50% diversité        :       52  (0.0%)
+  Fonctions 100% uniques           :  267,578  (99.6%)
+
+── 6. CARACTÉRISTIQUES DES SÉQUENCES ───────────────────────
+  Tokens distincts par chemin (médiane)  : 16
+  Tokens distincts par chemin (p75)      : 19
+  Sauts JK_* par chemin (médiane)        : 12
+  Sauts JK_* par chemin (p75)            : 20
+  Chemins sans aucun saut                : 37,077  (3.9%)
+
+════════════════════════════════════════════════════════════

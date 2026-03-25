@@ -100,6 +100,43 @@ def _load_jsonl_for_func(
     return paths
 
 
+def _trim_common_prefix(
+    paths_raw:     list[list[str]],
+    paths_encoded: list[list[int]],
+    context:       int = 6,
+) -> tuple[list[list[str]], list[list[int]], int]:
+    """
+    Supprime le préfixe commun à tous les chemins et retourne les séquences
+    à partir du premier point de divergence (moins `context` tokens de contexte).
+
+    Retourne (paths_raw_trimmed, paths_encoded_trimmed, offset).
+    Si tous les chemins sont identiques ou s'il n'y a qu'un chemin, retourne
+    les données intactes avec offset=0.
+    """
+    if len(paths_raw) <= 1:
+        return paths_raw, paths_encoded, 0
+
+    min_len = min(len(p) for p in paths_raw)
+    div = 0
+    for i in range(min_len):
+        if len(set(p[i] for p in paths_raw)) > 1:
+            div = i
+            break
+    else:
+        # Aucune divergence trouvée dans la longueur minimale
+        return paths_raw, paths_encoded, 0
+
+    start = max(0, div - context)
+    if start == 0:
+        return paths_raw, paths_encoded, 0
+
+    return (
+        [p[start:] for p in paths_raw],
+        [p[start:] for p in paths_encoded],
+        start,
+    )
+
+
 def _load_encoded_for_func(
     encoded_dir:   Path,
     binary_name:   str,
@@ -329,12 +366,45 @@ class PipelineVisualizer:
 
     # ── Point d'entrée public ──────────────────────────────────────────────
 
+    # ── Calcul de taille ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _asm_required_height(bb_asm_data: dict | None) -> float:
+        """Hauteur minimale en pouces pour que l'ASM tienne sans clipping."""
+        if not bb_asm_data:
+            return 0.0
+        n_insns = sum(len(v) for v in bb_asm_data.values())
+        n_bbs   = len(bb_asm_data)
+        # 0.032 unités normalisées par ligne, 0.13" min par ligne lisible
+        content_units = n_insns * 0.032 + n_bbs * (0.034 + 0.022)
+        return content_units * (0.13 / 0.032) + 0.5   # +0.5" marges
+
+    @staticmethod
+    def _cfg_required_height(cfg_graph) -> float:
+        """Hauteur minimale en pouces pour que le CFG tienne sans overlap."""
+        if cfg_graph is None or cfg_graph.number_of_nodes() == 0:
+            return 0.0
+        # Estimer le nombre de couches BFS ≈ diamètre + 1
+        try:
+            import networkx as nx
+            layers = nx.single_source_shortest_path_length(
+                cfg_graph, list(cfg_graph.nodes)[0]
+            )
+            n_layers = max(layers.values()) + 1
+        except Exception:
+            n_layers = cfg_graph.number_of_nodes()
+        # 1.5" par couche minimum (nœud ~1" + 0.5" marge)
+        return max(6.0, n_layers * 1.5)
+
+    # ── Points d'entrée publics ────────────────────────────────────────────
+
     def render(
         self,
         out_path:  str | Path = "pipeline_stages.png",
         max_paths: int = 12,
         max_len:   int = 32,
         dpi:       int = 150,
+        separate:  bool = False,
     ) -> Path:
         """
         Génère la figure multi-panels et la sauvegarde.
@@ -435,17 +505,39 @@ class PipelineVisualizer:
             logger.error("Aucun panel à rendre. Vérifier les chemins de données.")
             sys.exit(1)
 
-        # ── Composition matplotlib ────────────────────────────────────
+        # ── Trim du préfixe commun (divergence DFS) ───────────────────
+        if paths_raw and paths_encoded:
+            paths_raw, paths_encoded, div_offset = _trim_common_prefix(
+                paths_raw, paths_encoded
+            )
+            if div_offset > 0:
+                logger.info(
+                    "Préfixe commun supprimé : %d tokens (divergence à pos %d)",
+                    div_offset, div_offset,
+                )
+
+        stats = _compute_stats(bb_asm_data, bb_vex_tokens, paths_raw, paths_encoded, vocab)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if separate:
+            # ── Rendu séparé : une figure par panel ───────────────────
+            saved = self._render_panels_separate(
+                panels_to_render, out_path, binary_name, func_addr_hex, stats, dpi
+            )
+            return saved[0]
+
+        # ── Composition combinée avec hauteur dynamique ────────────────
         fig = self._compose_figure(
             panels_to_render,
             binary_name=binary_name,
             func_addr_hex=func_addr_hex,
-            stats=_compute_stats(bb_asm_data, bb_vex_tokens, paths_raw, paths_encoded, vocab),
+            stats=stats,
             dpi=dpi,
+            bb_asm_data=bb_asm_data,
+            cfg_graph=cfg_graph,
         )
 
         # ── Sauvegarde ────────────────────────────────────────────────
-        out_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(str(out_path), dpi=dpi, bbox_inches="tight", facecolor=BG)
         plt.close(fig)
 
@@ -454,6 +546,87 @@ class PipelineVisualizer:
 
     # ── Construction de la figure ─────────────────────────────────────────
 
+    def _render_panels_separate(
+        self,
+        panels:        list[Any],
+        combined_path: Path,
+        binary_name:   str,
+        func_addr_hex: str,
+        stats:         dict[str, str],
+        dpi:           int,
+    ) -> list[Path]:
+        """
+        Sauvegarde chaque panel dans son propre fichier PNG à taille naturelle.
+
+        Nommage : <stem>_asm.png, <stem>_cfg.png, <stem>_paths.png, <stem>_ids.png
+        """
+        import matplotlib.pyplot as plt
+        from .theme import BG, BORDER, PANEL, apply_dark_theme
+
+        apply_dark_theme()
+        stem = combined_path.stem
+        out_dir = combined_path.parent
+        saved: list[Path] = []
+
+        _sizes: dict[str, tuple[float, float]] = {
+            "ASSEMBLY":    (6.0,  0.0),   # hauteur calculée dynamiquement
+            "CFG + VEX IR": (0.0, 0.0),   # calculée dynamiquement
+            "CHEMINS DFS": (14.0, 0.0),   # hauteur calculée dynamiquement
+            "IDs ENCODÉS": (14.0, 0.0),
+        }
+
+        for panel in panels:
+            title_slug = panel.title.lower().replace(" ", "_").replace("+", "").replace("é", "e").replace("è", "e").strip("_")
+            out_file = out_dir / f"{stem}__{title_slug}.png"
+
+            # Calcul de la taille selon le type de panel
+            if panel.title == "ASSEMBLY":
+                # Hauteur pilotée par le contenu
+                n_insns = sum(len(v) for v in panel._data.values())
+                n_bbs   = len(panel._data)
+                content = n_insns * 0.032 + n_bbs * (0.034 + 0.022)
+                axes_h  = max(8.0, content * (0.13 / 0.032))
+                fig_w, fig_h = 6.0, axes_h / 0.88 + 0.6
+
+            elif panel.title == "CFG + VEX IR":
+                n_nodes = panel._graph.number_of_nodes()
+                try:
+                    import networkx as nx
+                    lays = nx.single_source_shortest_path_length(
+                        panel._graph, panel._root
+                    )
+                    n_layers = max(lays.values()) + 1
+                except Exception:
+                    n_layers = max(1, n_nodes // 2)
+                max_per_layer = max(
+                    (sum(1 for v in lays.values() if v == d)
+                     for d in range(n_layers)),
+                    default=1,
+                )
+                fig_w = max(10.0, max_per_layer * 3.5)
+                fig_h = max(10.0, n_layers      * 2.5)
+
+            elif panel.title in ("CHEMINS DFS", "IDs ENCODÉS"):
+                n_p   = len(panel._paths)
+                fig_h = max(6.0,  n_p * 0.38 + 2.0)
+                fig_w = 14.0
+
+            else:
+                fig_w, fig_h = 10.0, 8.0
+
+            fig, ax = plt.subplots(figsize=(fig_w, fig_h), facecolor=BG)
+            ax.set_facecolor(PANEL)
+            for spine in ax.spines.values():
+                spine.set_edgecolor(BORDER)
+                spine.set_linewidth(0.8)
+            panel.render(ax)
+            fig.savefig(str(out_file), dpi=dpi, bbox_inches="tight", facecolor=BG)
+            plt.close(fig)
+            logger.info("Panel séparé → %s", out_file.name)
+            saved.append(out_file)
+
+        return saved
+
     def _compose_figure(
         self,
         panels:         list[Any],
@@ -461,9 +634,12 @@ class PipelineVisualizer:
         func_addr_hex:  str,
         stats:          dict[str, str],
         dpi:            int,
+        bb_asm_data:    dict | None = None,
+        cfg_graph:      Any = None,
     ) -> "matplotlib.figure.Figure":
         """
         Crée la figure GridSpec et délègue le rendu à chaque panel.
+        La hauteur est calculée dynamiquement pour que l'ASM et le CFG tiennent.
 
         Layout :
           ┌──────────────────────────────── header stats ─────────────────────┐
@@ -485,9 +661,12 @@ class PipelineVisualizer:
         }
         widths = [_widths.get(p.title, 2.0) for p in panels]
 
-        fig_w = 6 * sum(widths) / n + 4
-        fig_h = 10.0
+        # Hauteur dynamique : minimum pour que l'ASM et le CFG tiennent
+        asm_h = self._asm_required_height(bb_asm_data)
+        cfg_h = self._cfg_required_height(cfg_graph)
+        fig_h = max(12.0, asm_h, cfg_h)
 
+        fig_w = 6 * sum(widths) / n + 4
         fig = plt.figure(figsize=(fig_w, fig_h), facecolor=BG)
 
         # GridSpec : 1 ligne header + 1 ligne contenu
@@ -586,6 +765,8 @@ exemples :
                    help="Résolution de sortie en DPI (défaut: 150)")
     p.add_argument("--no-angr",      action="store_true",
                    help="Sauter les panels ASM et CFG (pas besoin d'angr)")
+    p.add_argument("--separate",     action="store_true",
+                   help="Sauvegarder chaque panel dans son propre fichier PNG")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Logs verbeux")
     return p.parse_args(argv)
@@ -619,6 +800,7 @@ def main(argv: list[str] | None = None) -> None:
         max_paths = args.max_paths,
         max_len   = args.max_len,
         dpi       = args.dpi,
+        separate  = args.separate,
     )
     print(f"[✓] Figure → {out}")
 

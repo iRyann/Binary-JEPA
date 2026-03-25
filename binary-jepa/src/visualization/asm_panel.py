@@ -85,63 +85,89 @@ class AsmPanel(Panel):
     def render(self, ax: "matplotlib.axes.Axes") -> None:
         style_axes(ax, title=self.title, subtitle=self.subtitle)
         ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
         ax.set_axis_off()
 
-        # Calcul hauteur totale nécessaire
-        total_lines = sum(len(insns) for insns in self._data.values())
-        total_h = (
-            len(self._order) * (_BB_HDR_H + _BB_GAP)
-            + total_lines * _CELL_H
-        )
-        ax.set_ylim(0, max(total_h, 1.0))
+        # Toutes les positions sont en coordonnées normalisées [0,1] (transAxes),
+        # taille fixe indépendamment du nombre d'instructions → pas d'entassement.
+        CELL_H   = 0.032   # hauteur d'une ligne d'instruction
+        BB_GAP   = 0.022   # espace inter-bloc
+        BB_HDR_H = 0.034   # hauteur du header BB
+        Y_MIN    = 0.015   # marge basse : on clip en dessous
 
-        # Rendu de bas en haut (y croît vers le haut en matplotlib)
-        # On calcule d'abord en "y descendant" puis on inverse en fin de boucle
-        y_top = max(total_h, 1.0) - 0.01  # curseur, part du haut
+        y_cursor = 0.975   # curseur descendant depuis le haut
 
-        for addr in self._order:
+        for bb_idx, addr in enumerate(self._order):
             insns = self._data.get(addr, [])
             color = self._colors.get(addr, BORDER)
-            block_h = _BB_HDR_H + len(insns) * _CELL_H
+
+            # Plus assez de place pour le header ?
+            if y_cursor - BB_HDR_H < Y_MIN:
+                remaining = len(self._order) - bb_idx
+                ax.text(
+                    0.5, Y_MIN,
+                    f"… +{remaining} BB{'s' if remaining > 1 else ''} non affichés",
+                    ha="center", va="bottom",
+                    color=TEXT_DIM, fontsize=6,
+                    fontfamily="monospace",
+                    transform=ax.transAxes,
+                )
+                break
 
             # ── Bandeau de couleur BB (gauche) ──────────────────────────
+            visible_h = min(
+                BB_HDR_H + len(insns) * CELL_H,
+                y_cursor - Y_MIN,
+            )
             stripe = mpatches.FancyBboxPatch(
-                (0.01, y_top - block_h),
+                (0.01, y_cursor - visible_h),
                 _STRIPE_W,
-                block_h,
+                visible_h,
                 boxstyle="round,pad=0",
                 facecolor=color,
                 edgecolor="none",
-                transform=ax.transData,
-                clip_on=False,
+                transform=ax.transAxes,
+                clip_on=True,
             )
             ax.add_patch(stripe)
 
             # ── Header BB : adresse ──────────────────────────────────────
             ax.text(
-                _MARGIN_L, y_top - _BB_HDR_H / 2,
+                _MARGIN_L, y_cursor - BB_HDR_H / 2,
                 f"0x{addr:x}",
                 color=color,
                 fontsize=7.5,
                 fontfamily="monospace",
                 fontweight="bold",
                 va="center",
-                transform=ax.transData,
+                transform=ax.transAxes,
             )
 
             # Ligne de séparation sous le header
-            ax.axhline(
-                y_top - _BB_HDR_H,
-                xmin=_MARGIN_L, xmax=1 - _MARGIN_R,
-                color=_COL_SEP,
-                linewidth=0.5,
+            ax.plot(
+                [_MARGIN_L, 1 - _MARGIN_R],
+                [y_cursor - BB_HDR_H, y_cursor - BB_HDR_H],
+                color=_COL_SEP, linewidth=0.5,
+                transform=ax.transAxes,
             )
 
-            y_cursor = y_top - _BB_HDR_H
+            y_cursor -= BB_HDR_H
 
             # ── Instructions ─────────────────────────────────────────────
-            for (iaddr, mne, ops) in insns:
-                y_line = y_cursor - _CELL_H / 2
+            for insn_idx, (iaddr, mne, ops) in enumerate(insns):
+                if y_cursor - CELL_H < Y_MIN:
+                    remaining_insns = len(insns) - insn_idx
+                    ax.text(
+                        _MARGIN_L + 0.05, y_cursor - CELL_H / 2,
+                        f"… +{remaining_insns} instrs",
+                        color=TEXT_DIM, fontsize=6,
+                        fontfamily="monospace", va="center",
+                        transform=ax.transAxes,
+                    )
+                    y_cursor -= CELL_H
+                    break
+
+                y_line = y_cursor - CELL_H / 2
 
                 # Adresse (très discrète)
                 ax.text(
@@ -151,7 +177,7 @@ class AsmPanel(Panel):
                     fontsize=6.5,
                     fontfamily="monospace",
                     va="center",
-                    transform=ax.transData,
+                    transform=ax.transAxes,
                 )
                 # Mnémonique
                 ax.text(
@@ -161,7 +187,7 @@ class AsmPanel(Panel):
                     fontsize=7,
                     fontfamily="monospace",
                     va="center",
-                    transform=ax.transData,
+                    transform=ax.transAxes,
                 )
                 # Opérandes
                 ax.text(
@@ -171,9 +197,9 @@ class AsmPanel(Panel):
                     fontsize=7,
                     fontfamily="monospace",
                     va="center",
-                    transform=ax.transData,
+                    transform=ax.transAxes,
                 )
 
-                y_cursor -= _CELL_H
+                y_cursor -= CELL_H
 
-            y_top -= block_h + _BB_GAP
+            y_cursor -= BB_GAP

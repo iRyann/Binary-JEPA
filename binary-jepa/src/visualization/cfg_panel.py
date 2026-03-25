@@ -171,7 +171,6 @@ class CfgPanel(Panel):
         from matplotlib.patches import FancyArrowPatch
 
         style_axes(ax, title=self.title, subtitle=self.subtitle)
-        ax.set_aspect("equal")
         ax.set_axis_off()
 
         if self._graph.number_of_nodes() == 0:
@@ -188,7 +187,7 @@ class CfgPanel(Panel):
         x_range = max(max(xs) - min(xs), 1e-6)
         y_range = max(max(ys) - min(ys), 1e-6)
 
-        margin = 0.12
+        margin = 0.10
         pos: dict[int, tuple[float, float]] = {
             node: (
                 margin + (x - min(xs)) / x_range * (1 - 2 * margin),
@@ -197,10 +196,33 @@ class CfgPanel(Panel):
             for node, (x, y) in raw_pos.items()
         }
 
-        # ── Dimensions des nœuds (proportionnelles au nombre de tokens) ──
-        node_w = 0.28
-        node_h_base = 0.08    # header seul
-        row_h = 0.038          # hauteur d'une ligne de tokens
+        # ── Dimensions des nœuds ─────────────────────────────────────────
+        # node_w s'adapte à la couche la plus dense pour éviter les superpositions
+        layer_counts: dict[float, int] = {}
+        for (raw_x, raw_y) in raw_pos.values():
+            layer_counts[raw_y] = layer_counts.get(raw_y, 0) + 1
+        max_nodes_per_layer = max(layer_counts.values(), default=1)
+
+        if max_nodes_per_layer > 1:
+            max_gap = (1 - 2 * margin) / (max_nodes_per_layer - 1)
+            node_w = min(0.26, max_gap * 0.80)
+        else:
+            node_w = 0.26
+
+        # Espacement vertical : adapter node_h_base et row_h pour que les nœuds
+        # d'une couche n'empiètent jamais sur la couche suivante.
+        n_layers = len(set(raw_y for (raw_x, raw_y) in raw_pos.values()))
+        node_h_base = 0.08
+        row_h       = 0.038
+        if n_layers > 1:
+            max_y_gap   = (1 - 2 * margin) / (n_layers - 1)
+            max_rows    = max(1, (min(MAX_TOKENS_PER_NODE, 8) + TOKENS_PER_ROW - 1) // TOKENS_PER_ROW)
+            ideal_node_h = node_h_base + max_rows * row_h        # hauteur max d'un nœud
+            allowed_h    = max_y_gap * 0.82                      # 18 % de marge entre nœuds
+            if ideal_node_h > allowed_h:
+                scale      = allowed_h / ideal_node_h
+                node_h_base = node_h_base * scale
+                row_h       = row_h       * scale
 
         def _node_height(addr: int) -> float:
             toks = self._tokens.get(addr, [])

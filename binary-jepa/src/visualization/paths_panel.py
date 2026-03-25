@@ -142,19 +142,6 @@ class PathsPanel(Panel):
                 )
                 ax.add_patch(rect)
 
-                # Texte abrégé — seulement si la cellule est assez large
-                if cell_w > 0.018:
-                    label = display_name(token)
-                    ax.text(
-                        x_left + cell_w / 2, y_center,
-                        label,
-                        ha="center", va="center",
-                        color=TEXT_MAIN,
-                        fontsize=_FONT_TOK,
-                        fontfamily="monospace",
-                        transform=ax.transAxes,
-                        clip_on=True,
-                    )
 
             # Cellules vides pour les chemins plus courts que max_len
             for tok_idx in range(len(displayed_toks), self._max_len):
