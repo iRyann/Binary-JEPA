@@ -124,7 +124,18 @@ class IdsPanel(Panel):
             matrix[i, :len(row)] = row
 
         # ── Heatmap ───────────────────────────────────────────────────────
-        norm = Normalize(vmin=0, vmax=self._vocab_size - 1)
+        # Normalisation sur la plage réelle des données (hors padding) pour
+        # éviter que des IDs concentrés apparaissent tous de la même couleur.
+        non_pad = matrix[matrix != pad_id]
+        if len(non_pad) > 0:
+            vmin_data = float(non_pad.min())
+            vmax_data = float(non_pad.max())
+            if vmin_data == vmax_data:
+                vmax_data = vmin_data + 1.0
+        else:
+            vmin_data, vmax_data = 0.0, 1.0
+
+        norm = Normalize(vmin=vmin_data, vmax=vmax_data)
         im   = ax.imshow(
             matrix,
             aspect="auto",
@@ -186,27 +197,39 @@ class IdsPanel(Panel):
 
         max_h = max(entropies) if entropies else 1.0
 
-        ax_ins = ax.inset_axes([1.04, 0, 0.18, 1], transform=ax.transAxes)
+        ax_ins = ax.inset_axes([1.04, 0, 0.22, 1], transform=ax.transAxes)
         ax_ins.set_facecolor(PANEL)
         for spine in ax_ins.spines.values():
             spine.set_edgecolor(BORDER)
             spine.set_linewidth(0.5)
 
         y_positions = range(n_paths)
+        # Seuils absolus : indépendants de la distribution observée,
+        # ce qui évite que toutes les barres paraissent "constantes"
+        # même quand les valeurs sont très proches.
         colors = [
-            "#3fb950" if h >= max_h * 0.75 else
-            "#ffa657" if h >= max_h * 0.40 else
-            "#f78166"
+            "#3fb950" if h >= 2.5 else   # haute entropie
+            "#ffa657" if h >= 1.0 else   # entropie moyenne
+            "#f78166"                    # faible entropie
             for h in entropies
         ]
-        ax_ins.barh(y_positions, entropies, color=colors, height=0.7)
-        ax_ins.set_xlim(0, max(max_h * 1.15, 0.1))
+        bars = ax_ins.barh(y_positions, entropies, color=colors, height=0.7)
+        ax_ins.set_xlim(0, max(max_h * 1.35, 0.5))
         ax_ins.set_ylim(-0.5, n_paths - 0.5)
         ax_ins.invert_yaxis()
         ax_ins.set_xlabel("H (bits)", fontsize=5.5, color=TEXT_DIM)
         ax_ins.tick_params(labelsize=5, colors=TEXT_DIM)
         ax_ins.set_yticks([])
         ax_ins.set_title("entropie", fontsize=5.5, color=TEXT_DIM, pad=2)
+
+        # Annotation numérique sur chaque barre
+        for y_pos, h in zip(y_positions, entropies):
+            ax_ins.text(
+                h + max_h * 0.04, y_pos,
+                f"{h:.2f}",
+                va="center", ha="left",
+                fontsize=4.5, color=TEXT_DIM,
+            )
 
     def _render_colorbar(
         self,
@@ -228,17 +251,25 @@ class IdsPanel(Panel):
         cbar.ax.tick_params(labelsize=6, colors=TEXT_DIM)
         cbar.set_label("ID token", fontsize=6, color=TEXT_DIM)
 
-        # Marquer quelques tokens saillants sur la colorbar
+        # Marquer les tokens saillants présents dans la plage affichée
         key_tokens = ["<PAD>", "<UNK>", "<MASK>", "VEX_REG_WRITE",
                       "VEX_REG_READ", "VEX_LOAD", "JK_BORING", "JK_RET"]
         tick_ids   = []
         tick_lbls  = []
         for tok in key_tokens:
             tid = self._vocab.get(tok)
-            if tid is not None:
+            if tid is not None and norm.vmin <= tid <= norm.vmax:
                 tick_ids.append(tid)
                 tick_lbls.append(tok.replace("VEX_", "").replace("JK_", "").replace("<", "").replace(">", ""))
 
         if tick_ids:
             cbar.set_ticks(tick_ids)
             cbar.set_ticklabels(tick_lbls, fontsize=5)
+        else:
+            # Aucun token clé dans la plage : afficher min/max et milieu
+            mid = (norm.vmin + norm.vmax) / 2
+            cbar.set_ticks([norm.vmin, mid, norm.vmax])
+            cbar.set_ticklabels(
+                [f"ID {int(norm.vmin)}", f"ID {int(mid)}", f"ID {int(norm.vmax)}"],
+                fontsize=5,
+            )

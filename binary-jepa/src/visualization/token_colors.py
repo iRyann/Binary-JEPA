@@ -23,6 +23,8 @@ Hiérarchie des catégories :
 
 from __future__ import annotations
 
+import colorsys
+import hashlib
 import re
 from enum import Enum
 
@@ -120,9 +122,95 @@ def categorize(token: str) -> TokenCategory:
     return cat
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# COULEURS PAR TOKEN INDIVIDUEL
+# Chaque token reçoit sa propre couleur (pas seulement sa catégorie) pour
+# distinguer visuellement REG_READ de REG_WRITE, JK_CALL de JK_RET, etc.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Tokens sémantiquement importants : couleurs choisies à la main
+_TOKEN_COLORS: dict[str, str] = {
+    # REG : lecture vs écriture clairement distincts
+    "VEX_REG_READ":   "#79c0ff",   # bleu clair  — lecture registre
+    "VEX_REG_WRITE":  "#1f6feb",   # bleu foncé  — écriture registre
+    # MEM
+    "VEX_LOAD":       "#56d4f5",   # cyan vif    — lecture mémoire
+    "VEX_STORE":      "#0d7a8a",   # teal foncé  — écriture mémoire
+    # CTRL
+    "VEX_EXIT_COND":  "#ffa657",   # orange      — branchement conditionnel
+    # FLOW : très distincts — sémantique critique
+    "JK_BORING":      "#6a5c00",   # ocre sombre — flux séquentiel
+    "JK_CALL":        "#388bfd",   # bleu vif    — appel de fonction
+    "JK_RET":         "#da3633",   # rouge       — retour
+    "JK_NODECODE":    "#3d444d",   # gris foncé  — non décodable
+    "JK_SIGTRAP":     "#cf222e",   # rouge vif   — signal trap
+    # TEMP
+    "VEX_WrTmp":      "#6e7681",   # gris moyen  — temporaire VEX
+    "VEX_CONST":      "#b1bac4",   # gris clair  — constante
+    # SPECIAL
+    "<PAD>":          "#161b22",   # quasi-invisible
+    "<UNK>":          "#6e7681",
+    "<MASK>":         "#6e7681",
+    "<UNLIFTABLE>":   "#3d444d",
+    "<API_UNRESOLVABLECALLTARGET>": "#9e4da0",
+    "<API_UNRESOLVABLEJUMPTARGET>": "#7a3580",
+}
+
+# Teinte de base par catégorie (HSL, H∈[0,1])
+_BASE_HUES: dict[str, float] = {
+    "REG":     0.595,
+    "ARITH":   0.330,
+    "MEM":     0.510,
+    "CTRL":    0.075,
+    "FLOW":    0.150,
+    "TEMP":    0.570,
+    "API":     0.750,
+    "SYSCALL": 0.020,
+    "SPECIAL": 0.000,
+}
+
+
+def _category_token_color(token: str, cat: "TokenCategory") -> str:
+    """
+    Génère une couleur unique et déterministe pour un token dans la famille
+    de teinte de sa catégorie. Utilise le hash MD5 du nom pour la variation.
+    """
+    h = int(hashlib.md5(token.encode()).hexdigest()[:8], 16)
+    base_hue = _BASE_HUES.get(cat.value, 0.5)
+
+    # Variation de teinte ±0.04 → reste reconnaissable comme la même famille
+    hue_var = ((h >> 16) % 9 - 4) * 0.01
+    hue = (base_hue + hue_var) % 1.0
+
+    # Lightness 0.42–0.67 (6 niveaux) et saturation 0.60–0.90 (7 niveaux)
+    lightness   = 0.42 + ((h >> 8) % 6) * 0.05
+    saturation  = 0.60 + (h       % 7) * 0.05
+
+    if cat.value == "SPECIAL":
+        lightness  = 0.13 + (h % 4) * 0.04
+        saturation = 0.10
+    elif cat.value == "TEMP":
+        saturation = 0.28 + (h % 5) * 0.08
+        lightness  = 0.38 + (h % 6) * 0.05
+
+    r, g, b = colorsys.hls_to_rgb(hue, lightness, saturation)
+    return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
+
+# Cache des couleurs par token (calcul unique par token vu)
+_color_cache: dict[str, str] = {}
+
+
 def hex_color(token: str) -> str:
-    """Couleur hexadécimale (#rrggbb) associée à un token."""
-    return TOKEN_CAT_COLORS.get(categorize(token).value, TOKEN_CAT_DEFAULT)
+    """Couleur hexadécimale unique par token (pas seulement par catégorie)."""
+    if token in _color_cache:
+        return _color_cache[token]
+    if token in _TOKEN_COLORS:
+        color = _TOKEN_COLORS[token]
+    else:
+        color = _category_token_color(token, categorize(token))
+    _color_cache[token] = color
+    return color
 
 
 # ══════════════════════════════════════════════════════════════════════════════
