@@ -1,4 +1,4 @@
-\subsection{Expérimentation 0 — Aperçu préliminaire : validation qualitative du pipeline}
+\subsection{Aperçu préliminaire : appréciation qualitative du pipeline}
 \label{sub:exp0}
 
 % ──────────────────────────────────────────────────────────────────────────────
@@ -7,13 +7,16 @@
 Avant d'engager un protocole d'évaluation quantitatif complet, il est
 nécessaire de s'assurer que le pipeline d'extraction et d'encodage produit des
 représentations cohérentes avec les propriétés théoriques attendues d'un
-encodeur de type JEPA : (i) \emph{invariance à la compilation} — deux variants
-compilés d'un même programme devraient être proches dans l'espace latent — et
-(ii) \emph{séparabilité inter-programmes} — deux utilitaires de sémantique
+encodeur de type JEPA : 
+\begin{enumerate}
+  \item \emph{invariance à la compilation} — deux variants
+compilés d'un même programme devraient être proches dans l'espace latent,
+  \item \emph{séparabilité inter-programmes} — deux utilitaires de sémantique
 distincte devraient être éloignés indépendamment du compilateur utilisé.
-
+\end{enumerate}
 Cette première expérimentation constitue une \emph{preuve de concept}
-qualitative. Elle ne vise pas à mesurer une performance absolue, mais à valider
+qualitative. 
+Elle ne vise pas à mesurer une performance absolue, mais à valider
 que la chaîne de traitement complète — compilation, extraction des
 Bag-of-Paths, encodage par \texttt{elf64ctx}, comparaison et visualisation —
 produit des signaux interprétables et alignés avec les hypothèses du modèle.

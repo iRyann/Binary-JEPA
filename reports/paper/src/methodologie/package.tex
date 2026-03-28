@@ -1,3 +1,62 @@
 \subsection{Packaging}\label{sub:Packaging} % (fold)
 
+L'encodeur pré-entraîné est distribué sous la forme d'un paquet Python installable,
+nommé \texttt{elf64\_context\_hash}, conçu selon le principe du \textit{zero-friction
+deployment} : l'utilisateur n'a à connaître ni l'architecture du modèle, ni les chemins
+de fichiers, ni le protocole d'extraction VEX — l'ensemble du pipeline est encapsulé
+derrière une interface uniforme.
+
+\subsubsection{Structure du paquet et point d'entrée CLI}
+
+Le paquet est déclaré via un fichier \texttt{pyproject.toml} standard et expose un
+unique point d'entrée en ligne de commande :
+
+\mintinline{sh}{elf64ctx [-E <binaires>] [-C <f1> <f2>] [-P] [-F <fn1> <fn2>] [--plot] [-D]}
+
+Les deux modes principaux sont l'encodage (\texttt{-E}) et la comparaison
+(\texttt{-C}). En mode encodage, le pipeline complet est exécuté sur chaque fichier ELF
+fourni : extraction du Bag-of-Paths via \texttt{angr}, canonicalisation VEX par la
+projection $\Phi$, encodage par le \texttt{Conv1DEncoder}, normalisation $\ell_2$, et
+sérialisation des embeddings par fonction au format JSON (pickle + encodage Base64). En
+mode comparaison, les embeddings préalablement sérialisés de deux binaires sont chargés
+et une matrice de distances euclidiennes dans $\mathbb{R}^{256}$ est calculée pour toutes
+les paires de fonctions, avec option de visualisation en heatmap (\texttt{--plot},
+colormap \texttt{plasma\_r}).
+
+Le flag \texttt{-P} active un mode prédicteur : un token \texttt{<MASK>} est annexé à
+chaque séquence avant encodage, et c'est la sortie du prédicteur $g_\varphi$ à la
+position finale — plutôt que la sortie brute de $f_\theta$ — qui est retenue comme
+embedding. Ce mode permet d'obtenir une représentation prospective, conditionnée sur la
+continuation latente attendue du chemin d'exécution.
+
+\subsubsection{Téléchargement automatique des artefacts depuis HuggingFace Hub}
+
+Le vocabulaire canonique (\texttt{vocab.json}, $|V| = 371$ tokens) et le checkpoint
+d'entraînement (\texttt{latest.pt}, contenant les états de $f_\theta$ et $g_\varphi$)
+sont hébergés sur le dépôt HuggingFace \href{https://huggingface.co/rubenanko/binary-jepa/tree/main}{\texttt{rubenanko/binary-jepa}}. Leur
+téléchargement est déclenché automatiquement lors du premier import du module, via
+\texttt{hf\_hub\_download}, dans le répertoire \texttt{\textasciitilde/.elf64-context-hash/} :
+
+\begin{minted}{Python}
+if not DEFAULT_VOCAB_PATH.is_file():
+    hf_hub_download(repo_id=DEFAULT_REPO_ID,
+                    filename="vocab.json",
+                    local_dir=DEFAULT_DATA_PATH)
+\end{minted}
+
+Ce mécanisme garantit la reproductibilité : toute installation du paquet, quelle que
+soit la machine, converge vers le même checkpoint de référence sans intervention
+manuelle. Il découple par ailleurs le cycle de vie du modèle — mis à jour sur le Hub à
+chaque ré-entraînement — de celui du paquet, versionné indépendamment.
+
+\subsubsection{Isolation des dépendances lourdes}
+
+Le module charge \texttt{torch}, \texttt{angr} et \texttt{matplotlib} à la demande,
+dans les fonctions qui en ont besoin, plutôt qu'au niveau du module. Cela maintient un
+temps d'import minimal pour les usages programmatiques qui n'auraient besoin que du
+chargement des embeddings pré-calculés (\texttt{load\_embeddings}), sans déclencher
+l'initialisation coûteuse d'angr ou le chargement des poids PyTorch. La séparation
+entre \texttt{loaders.py} (chargement des artefacts), \texttt{elf\_processing.py}
+(extraction statique) et \texttt{model/} (architectures) reflète cette logique de
+dépendance paresseuse.
 % subsection Packaging (end)

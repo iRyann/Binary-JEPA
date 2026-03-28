@@ -64,13 +64,20 @@ Grâce à cette projection $\Phi$, chaque chemin $p = (v_1, \dots, v_L)$ est apl
 \label{fig:pipeline_extraction}
 \end{figure}
 
-\subsubsection{Stabilité}\label{sec:Stabilité} % (fold)
+\subsubsection{Propriétés}\label{sec:Propriétés} % (fold)
 
-\paragraph{Hypothèse}\label{par:Hypothèse} % (fold)
-Modélisation offrant une résilience naturelle face aux obfuscations modifiant le graphe de contrôle (CFG).
-% paragraph Hypothèse (end)% subsubsection Stabilité (end)
+\paragraph{Hypothèses}\label{par:Hypothèses} % (fold)
+\begin{enumerate}
+  \item Modélisation offrant une résilience naturelle face aux obfuscations modifiant le graphe de contrôle (CFG).
+  \item Modélisation offrant une couverture sémantique dense et relativement uniforme au gré des transformations, notamment en vue de l'apprentissage (et donc au regard des particularités de ce dernier).
+\end{enumerate}
 
-Preuve ?
+\begin{coder}
+  Pour l'heure, compte-tenu des contraintes inhérentes à la réalisation de ce projet de fin d'étude, les hypothèses formulées \ref{par:Hypothèses} sont postulées, dans l'attente d'une validation quantitative, une fois l'architecture globale stabilisée.
+\end{coder}
+
+% paragraph Hypothèse (end)
+% subsubsection Propriétés (end)
 
 % paragraph  (end)
 \subsubsection{Robustesse Opérationnelle MLOps}
