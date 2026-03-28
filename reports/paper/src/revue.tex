@@ -1,11 +1,171 @@
-\section{État des lieux}\label{sec:État des lieux} % (fold)
+\section{État des lieux}\label{sec:etat_des_lieux}
 
-\subsection{Applications}\label{sub:Applications} % (fold)
+\subsection{Applications}\label{sub:applications}
 
-% subsection Applications (end)
+\subsubsection{Visualisation du pipeline de représentation}
 
-\subsection{Discussion}\label{sub:Discussion} % (fold)
+Afin de valider qualitativement la cohérence de chaque stade de transformation du
+pipeline, nous avons développé un outil de visualisation multi-panels
+(\texttt{visualization/pipeline\_viz.py}) produisant, pour une fonction binaire donnée,
+quatre représentations superposées : le graphe de flux de contrôle annoté en VEX IR,
+les chemins DFS tokenisés, les identifiants encodés et leur entropie par chemin.
 
-% subsection Discussion (end)
+Les Figures~\ref{fig:cfg_vex}, \ref{fig:chemins_dfs} et~\ref{fig:ids_encodes} illustrent
+ce pipeline appliqué à une fonction de \texttt{ls} compilé avec \texttt{clang -Os}. La
+fonction sélectionnée présente un CFG de 11 blocs de base et 18 arêtes, desquels le DFS
+aléatoire extrait 9 chemins d'une longueur moyenne de 59.6 tokens.
 
-% section État des lieux (end)
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.45\textwidth]{figures/ls_clang_Os__diverse__cfg__vex_ir.png}
+    \caption{CFG intra-procédural de la fonction cible (\texttt{ls}, \texttt{clang -Os},
+    11 BBs / 18 arêtes). Chaque bloc de base est annoté avec ses tokens VEX IR canoniques
+    issus de la projection $\Phi$. La couleur de bordure distingue les blocs selon leur
+    JumpKind terminal.}
+    \label{fig:cfg_vex}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/ls_clang_Os__diverse__chemins_dfs.png}
+    \caption{Chemins DFS tokenisés (9 chemins, moy. 59.6 tokens par chemin). Chaque
+    cellule représente un token, coloré par catégorie sémantique : registres (REG, bleu),
+    opérations arithmétiques (ARITH, vert), accès mémoire (MEM, cyan), contrôle de flot
+    (CTRL, orange), sorties de fonction (FLOW, olive), temporaires VEX (TEMP, gris),
+    appels API (API, violet), appels système (SYSCALL, rouge). La structure répétée des
+    colonnes entre les chemins p1--p7 traduit un tronc commun dominant dans le CFG.}
+    \label{fig:chemins_dfs}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/ls_clang_Os__diverse__ids_encodes.png}
+    \caption{IDs encodés des 9 chemins (colormap \textit{viridis}, axe x = position dans
+    le chemin). Le panneau droit indique l'entropie de Shannon par chemin :
+    $\bar{H} = 3.38$ bits. Les chemins p1--p7 présentent une entropie uniforme de 3.37
+    bits, tandis que p0 (3.25) et p8 (3.56) s'en écartent légèrement, correspondant
+    respectivement au chemin le plus court et au seul chemin se terminant par un appel
+    système (\texttt{SYSCALL}, ID élevé, tache cyan visible en position 63).}
+    \label{fig:ids_encodes}
+\end{figure}
+
+Plusieurs propriétés remarquables se dégagent de cette visualisation. La figure des
+chemins DFS (Figure~\ref{fig:chemins_dfs}) révèle la structure quasi-identique des
+chemins p1 à p7 : ces derniers partagent un long préfixe commun (environ les 40 premiers
+tokens), correspondant au tronc dominant du CFG, avant de diverger lors des blocs
+terminaux. Cette redondance est un artefact attendu du DFS aléatoire sur un CFG peu
+ramifié, et constitue un signal d'apprentissage naturellement pondéré — les transitions
+fréquentes sont présentées proportionnellement plus souvent au modèle.
+
+La figure des IDs encodés (Figure~\ref{fig:ids_encodes}) met en évidence la structure
+colonnaire du vocabulaire canonique après projection $\Phi$ : les tokens jaunes ($\approx$
+\texttt{JK\_RET}) et cyan ($\approx$ \texttt{VEX\_LOAD}) apparaissent en colonnes
+verticales strictement alignées entre tous les chemins, confirmant que le cache de blocs
+intra-fonction garantit une tokenisation déterministe et cohérente. L'entropie
+$\bar{H} = 3.38$ bits (sur $\log_2 371 \approx 8.5$ bits théoriques) indique que le
+vocabulaire effectif utilisé dans cette fonction se concentre sur environ
+$2^{3.38} \approx 10$ tokens distincts, ce qui est cohérent avec la structure répétitive
+des opérations de bas niveau d'une fonction orientée manipulation de chaînes.
+
+\subsubsection{Robustesse observée de la canonicalisation}
+
+L'expérimentation de visualisation menée sur les trois profils de compilation de
+\texttt{xpalloc} (Section~\ref{sub:exp0}, run \texttt{cat\_gcc\_O3} et
+\texttt{cat\_clang\_Os}) confirme les observations du README de l'expérience 1 : les
+patterns de catégories de tokens (REG, ARITH, MEM) apparaissent dans des proportions
+quasi-identiques entre GCC -O3 (19 BBs) et Clang -Os (12 BBs), et l'entropie de Shannon
+confirme cette proximité sémantique (2.58 vs 2.89 bits). La canonicalisation VEX absorbe
+donc efficacement les variations syntaxiques inter-compilateurs au niveau de la
+distribution des catégories d'opérations, ce qui constitue la première validation
+qualitative de la robustesse de la projection $\Phi$.
+
+\subsection{Discussion}\label{sub:discussion}
+
+\subsubsection{Bilan de la contribution actuelle}
+
+Le travail présenté dans ce rapport établit la faisabilité d'une chaîne complète
+allant du fichier ELF brut à un embedding sémantique compact, sans supervision, en
+passant par le lifting VEX IR, la modélisation en Bag-of-Paths et l'apprentissage
+prédictif latent I-JEPA. Les résultats de l'expérimentation 0 fournissent une preuve de
+concept qualitative : les paires positives (même utilitaire, compilateurs différents)
+présentent des îlots de proximité dans l'espace latent, tandis que les paires négatives
+(utilitaires distincts) maintiennent une séparation cohérente. L'analyse de convergence
+des trois runs d'entraînement (Section~\ref{sub:runs}) révèle par ailleurs que la
+stratégie de masquage aléatoire est la seule configuration ayant conduit à une
+convergence stable sur 10 époques, avec un plateau à $\mathcal{L} \approx 0.030$.
+
+Ces résultats constituent néanmoins une preuve de concept préliminaire, dont les limites
+sont clairement bornées : corpus d'entraînement bénin et monolingue, absence d'évaluation
+quantitative, claim de robustesse à l'obfuscation non validé empiriquement, et
+architecture à champ réceptif limité.
+
+\subsubsection{Feuille de route}
+\label{sub:todo}
+Les travaux futurs s'organisent autour de sept axes, classés par priorité
+méthodologique.
+
+\paragraph{1. Évaluation quantitative du corpus et correction des biais.}
+Avant tout raffinage architectural, il est impératif d'établir un protocole d'évaluation
+rigoureux sur le corpus complet de 1~060 ELF. Le protocole retenu sera un schéma de
+récupération (\textit{retrieval}) : pour chaque binaire requête, retrouver ses 9 variants
+co-sémantiques dans un pool de négatifs de taille $N$. Les métriques cibles sont
+\textit{Recall@k} ($k \in \{1, 5, 10\}$), Mean Reciprocal Rank (MRR) et Area Under the
+ROC Curve (AUC). Ce protocole permettra également de détecter d'éventuels biais de
+sélection — notamment la proximité résiduelle entre utilitaires partageant des primitives
+système communes (\texttt{<API\_WRITE>}, \texttt{<SYSCALL\_READ>}).
+
+\paragraph{2. Légitimation formelle du pipeline par analyse sémantique.}
+L'hypothèse de résilience du Bag-of-Paths face aux obfuscations modifiant le CFG
+(Section~\ref{par:Hypothèses}) reste à prouver. Une analyse formelle sera conduite en deux
+temps : d'abord, une démonstration que la distribution de probabilité des chemins
+$\{p_i\}$ est stable sous les transformations de Control Flow Flattening (CFF) et
+Bogus Control Flow (BCF) pour une fonction donnée ; ensuite, une validation empirique
+sur des binaires obfusqués produits via OLLVM, en mesurant la distance $\ell_2$ entre
+les embeddings du binaire original et de ses variants obfusqués.
+
+\paragraph{3. Mise à jour du pipeline de représentation sémantique.}
+La Figure~\ref{fig:chemins_dfs} met en évidence la richesse catégorielle des tokens
+VEX produits par la projection $\Phi$ actuelle. Une révision du pipeline de représentation
+est néanmoins envisagée afin d'enrichir le contenu sémantique des séquences, notamment
+par l'incorporation des dépendances de données inter-blocs (chaînes def-use) et par
+l'étude d'alternatives à VEX IR documentées dans la littérature — telles que LLVM IR ou
+les représentations basées sur P-Code (Ghidra) — qui pourraient offrir un meilleur
+compromis entre expressivité et stabilité du vocabulaire face à des binaires non x86-64.
+
+\paragraph{4. Projection des embeddings et analyse des clusters.}
+Une fois le protocole d'évaluation établi, une analyse exploratoire des représentations
+latentes sera conduite par projection en trois dimensions (t-SNE ou UMAP sur les
+embeddings de l'encodeur $f_\theta$). L'objectif est de faire apparaître visuellement des
+clusters logiques — par famille sémantique (utilitaires de manipulation de fichiers,
+d'archivage, de texte) — et de vérifier que les variants compilatoires d'un même
+utilitaire se regroupent dans des voisinages cohérents, indépendamment du compilateur
+et du niveau d'optimisation.
+
+\paragraph{5. Étude des stratégies de masquage et améliorations du modèle JEPA.}
+L'analyse comparative des trois runs (Section~\ref{sub:runs}) montre que la
+stratégie de masquage est le facteur de convergence dominant. Une étude d'ablation
+systématique sera menée sur les stratégies suivantes : masquage aléatoire uniforme
+(run actuel), masquage par blocs contigus de tailles croissantes (\textit{curriculum
+masking}), et masquage orienté sémantique ciblant préférentiellement les tokens de
+catégories rares (API, SYSCALL). Par ailleurs, l'extension de l'architecture vers un
+encodeur à champ réceptif global sera explorée — Mamba (SSM) ou Longformer — afin de
+rendre la stratégie de masquage par tiers consécutifs (objectif théorique de l'I-JEPA
+1D) effectivement entraînable.
+
+\paragraph{6. Allègement et optimisation du pipeline d'inférence.}
+En vue de la distribution du paquet \texttt{elf64ctx} à grande échelle, plusieurs
+optimisations sont envisagées : quantification du checkpoint \texttt{latest.pt} en
+INT8 pour réduire l'empreinte mémoire du modèle (actuellement 15~Mo), vectorisation
+du pipeline d'extraction via un mode batch dans \texttt{BinaryAnalyzer}, et exploration
+d'un mode d'encodage léger (\textit{fingerprint}) produisant un vecteur binaire de
+dimension réduite par application du Straight-Through Estimator (STE) directement en
+sortie de $f_\theta$, permettant des comparaisons par distance de Hamming en $O(1)$
+sur CPU.
+
+\paragraph{7. Extension du corpus et transfert vers les malwares.}
+À terme, l'élargissement du corpus d'entraînement à des projets open-source de plus
+grande envergure (noyau Linux, OpenSSL, FFmpeg) est indispensable pour couvrir la
+diversité sémantique rencontrée dans un contexte de détection de malwares réels. Ce
+corpus étendu constituera la base d'un entraînement par transfert (\textit{fine-tuning})
+sur des échantillons malveillants annotés, étape finale pour valider la prémisse centrale
+de ce travail : la stabilité du hachage sémantique face à l'obfuscation polymorphe.

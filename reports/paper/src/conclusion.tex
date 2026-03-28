@@ -1,3 +1,63 @@
 \section{Conclusion}\label{sec:Conclusion} % (fold)
 
+Ce travail présente Binary-JEPA, une approche de hachage sémantique de binaires ELF64
+fondée sur l'apprentissage auto-supervisé. Face à l'obsolescence des signatures
+cryptographiques classiques et à la fragilité des représentations syntaxiques ou
+topologiques face aux techniques d'obfuscation modernes, nous avons proposé une
+architecture articulée autour de trois contributions distinctes.
+
+\paragraph{Sur le plan de la représentation.} Le pipeline d'extraction statique combine le
+lifting vers VEX IR via \texttt{angr}, la modélisation topologique en Bag-of-Paths par
+DFS aléatoire borné, et une projection sémantique stricte $\Phi$ réduisant le vocabulaire
+brut à 371 tokens canoniques. Cette canonicalisation absorbe efficacement les variations
+syntaxiques inter-compilateurs : l'expérimentation de visualisation (Section~5.1) montre
+que la distribution des catégories de tokens — registres, opérations arithmétiques, accès
+mémoire — reste quasi-identique pour une même fonction compilée par GCC~-O3 (19~BBs) et
+Clang~-Os (12~BBs), avec une entropie de Shannon de 2.58 et 2.89~bits respectivement.
+Ces résultats constituent la première validation qualitative de la robustesse de $\Phi$.
+
+\paragraph{Sur le plan de l'architecture.} L'adaptation unidimensionnelle du cadre I-JEPA à
+l'analyse de séquences symboliques VEX constitue, à notre connaissance, une contribution
+inédite dans la littérature BCSD. En forçant un encodeur convolutif léger ($\approx
+15$~Mo) à prédire la représentation latente de positions masquées — plutôt qu'à
+reconstruire le token exact — le modèle est mathématiquement contraint d'abstraire le
+bruit stochastique (variations compilatoires, code mort) pour ne capturer que l'essence
+comportementale du chemin d'exécution. L'expérimentation~0 valide qualitativement deux
+propriétés attendues : une invariance partielle à la compilation pour les paires positives
+(distances dans $[0, 1.0]$, îlots chauds à $\approx 0.2$--$0.4$), et une séparabilité
+inter-programmes pour les paires négatives (distances dans $[0.6, 1.0]$), avec un effet
+super-additif atteignant $[0, 3.0]$ lorsque les deux sources de divergence se cumulent.
+
+\paragraph{Sur le plan de l'ingénierie.} L'analyse comparative de trois runs d'entraînement
+révèle que la stratégie de masquage est le facteur déterminant de la convergence, devant
+le taux d'apprentissage ou la taille de batch. Le masquage aléatoire produit le seul run
+stable sur 10~époques, avec un plateau à $\mathcal{L} \approx 0.030$. L'encodeur
+pré-entraîné est distribué sous la forme d'un paquet Python installable
+(\texttt{elf64ctx}) avec téléchargement automatique depuis HuggingFace Hub
+(\texttt{rubenanko/binary-jepa}), assurant la reproductibilité et l'accessibilité de
+l'artefact.
+
+Ces résultats sont néanmoins à interpréter comme une preuve de concept rigoureuse plutôt
+que comme une validation complète. Trois limitations structurelles bornent la portée
+actuelle : l'absence d'évaluation quantitative formelle (Recall@k, MRR, AUC), la
+non-validation empirique de l'hypothèse de résilience face aux obfuscations CFF et BCF,
+et un champ réceptif convolutif limité à 13~tokens rendant la stratégie de masquage par
+tiers consécutifs — objectif théorique de l'I-JEPA 1D — structurellement inentraînable
+avec l'architecture actuelle.
+
+La feuille de route définie en Section~\ref{sub:todo} trace le chemin vers une validation
+complète, organisée en sept axes progressifs : évaluation quantitative sur les 1~060~ELF
+du corpus, légitimation formelle du Bag-of-Paths face à l'obfuscation, enrichissement du
+pipeline de représentation sémantique, analyse exploratoire par projection UMAP/t-SNE,
+ablation systématique des stratégies de masquage, optimisation de l'inférence en vue de
+la portabilité, et extension vers un corpus multi-famille pour le transfert sur malwares
+réels.
+
+Au-delà de ses résultats immédiats, ce travail illustre la pertinence d'une rupture
+paradigmatique dans l'approche du BCSD : là où la littérature existante cherche à encoder
+explicitement la sémantique par reconstruction syntaxique ou isomorphisme de graphes,
+Binary-JEPA la laisse émerger comme condition nécessaire à la prédiction latente. Cette
+inversion de paradigme, adaptée ici pour la première fois au domaine de l'analyse
+statique de binaires, ouvre une voie de recherche dont ce rapport ne constitue que le
+point de départ.
 % section Conclusion (end)

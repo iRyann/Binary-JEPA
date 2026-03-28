@@ -7,4 +7,96 @@
 %-> tentative de restreindre la dimension de l'embedding (256 -> 128 -> 64) pour faire converger les représentation
 
 
+\subsubsection{Infrastructure et configuration}
+
+L'entraînement est piloté via un fichier de configuration YAML, garantissant la
+reproductibilité complète de chaque run. Trois runs successifs sont archivés sur le dépôt
+HuggingFace \texttt{rubenanko/binary-jepa}, chacun stockant ses checkpoints par époque
+(\texttt{ep\{n\}.pt}), le checkpoint de référence (\texttt{latest.pt}), le journal de
+perte (\texttt{log.csv}) et sa configuration (\texttt{train.yaml}). Le corpus d'entraînement
+est \texttt{raw\_data500.json}, un sous-ensemble des séquences extraites par le pipeline
+de la Section~\ref{sub:Extraction et Représentation des Données}.
+
+\subsubsection{Historique des runs et analyse de convergence}
+\label{sub:runs}
+
+Le Tableau~\ref{tab:runs} résume les configurations et résultats des trois runs conduits.
+
+\begin{table}[h]
+\centering
+\caption{Récapitulatif des runs d'entraînement archivés sur \texttt{rubenanko/binary-jepa}.}
+\label{tab:runs}
+\begin{tabular}{lccccc}
+\toprule
+Run & Date & Stratégie de masquage & LR & Batch & Perte finale \\
+\midrule
+\texttt{10-03-2026} & 10 mars 2026 & Tiers consécutifs & $5 \times 10^{-5}$ & 20 & 512.88 \\
+\texttt{last-token} & 14 mars 2026 & Dernier token & $10^{-4}$ & 10 & 5.81 \\
+\texttt{random-token} & 14 mars 2026 & Token aléatoire & $10^{-4}$ & 10 & 0.030 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Run 1 — \texttt{10-03-2026} : divergence catastrophique.}
+Le premier run ($\eta = 5 \times 10^{-5}$, $B = 20$, stratégie de masquage par tiers
+consécutifs) présente une divergence dès l'époque 1 : la perte Huber atteint 14.82 à la
+première époque, puis croît de façon monotone pour atteindre 512.88 à l'époque 10.
+Une telle trajectoire exclut tout problème de taux d'apprentissage trop élevé — la perte
+n'est jamais décroissante. Ce comportement est cohérent avec un effondrement de
+représentation (\textit{representation collapse}) survenant avant même la première mise à
+jour EMA stabilisante, vraisemblablement amplifié par la taille de batch élevée ($B=20$)
+réduisant le bruit stochastique protecteur dans les premières itérations. Ce run est
+abandonné.
+
+\paragraph{Run 2 — \texttt{last-token} : instabilité tardive.}
+Le second run ramène la taille de batch à $B = 10$ et adopte une stratégie de masquage
+dit \textit{dernier token} : seul le token terminal de la séquence est masqué, et c'est
+sa représentation latente que le prédicteur $g_\varphi$ doit reconstruire. La perte
+s'établit à des valeurs raisonnables lors des premières époques
+($\mathcal{L}_1 = 0.672$, $\mathcal{L}_7 = 0.997$), avant de diverger à partir de
+l'époque 8 ($\mathcal{L}_8 = 2.256$, $\mathcal{L}_{10} = 5.807$). Cette instabilité
+tardive suggère que la tâche du dernier token est insuffisamment contraignante :
+l'encodeur apprend à maximiser la prédictibilité d'une unique position terminale,
+au risque de surspécialiser les représentations et de rendre l'encodeur cible $f_\xi$
+trop sensible aux derniers tokens d'API ou de JumpKind, qui sont pourtant les plus
+variables selon le contexte d'obfuscation. Ce run est écarté au profit du run suivant.
+
+\paragraph{Run 3 — \texttt{random-token} : convergence stable.}
+Le troisième run conserve la configuration $B = 10$, $\eta = 10^{-4}$, et adopte un
+masquage aléatoire des positions cibles au sein de la séquence réelle (hors padding).
+La courbe de perte converge régulièrement :
+
+\begin{equation}
+\mathcal{L}_1 = 0.0776 \;\to\; \mathcal{L}_3 = 0.0375 \;\to\; \mathcal{L}_7 = 0.0303
+\;\to\; \mathcal{L}_{10} = 0.0300,
+\end{equation}
+
+indiquant un plateau atteint dès l'époque 7 ($\Delta\mathcal{L}_{7 \to 10} < 10^{-3}$).
+Ce plateau constitue un signal de convergence sain dans le cadre JEPA : il ne signifie
+pas que le modèle a cessé d'apprendre, mais que l'encodeur cible $f_\xi$ et l'encodeur
+de contexte $f_\theta$ ont atteint un équilibre dynamique stable sous la contrainte EMA.
+Le checkpoint \texttt{random-token/latest.pt} — correspondant à l'époque 10 — est promu
+comme artefact de référence et copié à la racine du dépôt (\texttt{latest.pt}), constituant
+le modèle utilisé dans les expérimentations de la Section~\ref{sec:experiments}.
+
+\subsubsection{Discussion : impact de la stratégie de masquage}
+
+Les trois runs révèlent que la stratégie de masquage est le facteur déterminant de la
+convergence, devant le taux d'apprentissage ou la taille de batch. Le masquage par tiers
+consécutifs (run 1) impose une tâche de prédiction de continuation à longue portée que
+l'encodeur convolutif — dont le champ réceptif effectif est limité à 13 tokens — ne
+peut structurellement résoudre dans les premières itérations, conduisant à l'explosion du
+gradient. Le masquage du dernier token seul (run 2) réduit trop la difficulté de la
+tâche et produit des représentations surspécialisées. Le masquage aléatoire (run 3)
+offre un compromis adapté : la tâche est localement résoluble par le champ réceptif
+convolutif, mais suffisamment diverse pour empêcher la mémorisation et forcer la
+généralisation sémantique.
+
+Il convient de noter que la stratégie de masquage par tiers consécutifs décrite en
+Section~\ref{sub:masking} constitue l'objectif d'entraînement cible de l'architecture
+I-JEPA 1D, mais n'a pas encore produit de run convergent dans le cadre de cette preuve
+de concept. Son application requiert vraisemblablement un encodeur à champ réceptif
+global (Transformer, Mamba) ou un curriculum d'entraînement progressif augmentant
+graduellement la longueur du bloc masqué.
+
 % subsection Entraînement (end)

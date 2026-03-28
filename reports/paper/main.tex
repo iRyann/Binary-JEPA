@@ -41,7 +41,9 @@
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 \usepackage{amsmath,amssymb,bm}
-\usepackage{booktabs,xcolor}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\PassOptionsToPackage{svgnames}{xcolor}
 \usepackage{multirow}
 % -----------------------------------------------------------
 % couleurs maison
@@ -53,18 +55,31 @@
 \definecolor{colLoss}{HTML}{8B5CF6}  % violet — perte
 
 \usepackage{cleveref}       % smart cross-referencing
+
+%----------- temp ---------
+\usepackage[most]{tcolorbox}
+\input{config/commands}
+\input{config/palette_aef}
+\usepackage{listings}
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+}
+\usepackage{minted}
 %----------- Paper Config ---------
 \title{Hachage Sémantique de Binaires par Apprentissage Auto-Supervisé : \emph{Binary-JEPA}, Une Approche JEPA sur Bag-of-Paths VEX}
 
 % Here you can change the date presented in the paper title
-\date{18 mars 2026}
+\date{\today}
 
 \newif\ifuniqueAffiliation
 % Comment to use multiple affiliations variant of author block 
 \uniqueAffiliationtrue
 
 \ifuniqueAffiliation % Standard variant of author block
-  \author{ \href{https://orcid.org/0009-0001-5714-3438}{\includegraphics[scale=0.06]{assets/orcid.pdf}\hspace{1mm}Ryan Bouchou}\thanks{\href{https://ryanbouchou.fr}{https://www.ryanbouchou.fr}} \\
+  \author{ \href{https://orcid.org/0009-0001-5714-3438}{\includegraphics[scale=0.06]{assets/orcid.pdf}\hspace{1mm}Ryan Bouchou}\thanks{\href{https://ryanbouchou.fr}{https://www.ryanbouchou.fr}, \href{mailto:ryanbouchou.pro@gmail.com}{ryanbouchou.pro@gmail.com}} \\
 	ING3 Cybersécurité\\
 	CY Tech\\
 	64000 Pau, France \\
@@ -95,8 +110,8 @@
 \fi
 
 % Uncomment to override  the `A preprint' in the header
-%\renewcommand{\headeright}{Technical Report}
-%\renewcommand{\undertitle}{Technical Report}
+\renewcommand{\headeright}{Working Paper}
+\renewcommand{\undertitle}{Working Paper}
 \renewcommand{\shorttitle}{Binary-JEPA}
 
 %%% Add PDF metadata to help others organize their library
@@ -117,6 +132,10 @@ pdfkeywords={Analyse de malwares, Hachage sémantique, Apprentissage auto-superv
 \begin{document}
 \maketitle
 
+
+%############## Utils ##############
+\tcbset{colback=red!5!white,colframe=red!75!black,fonttitle=\bfseries}
+
 %############## Corps du rapport ##############
 \input{src/abstract}
 \newpage
@@ -129,7 +148,7 @@ pdfkeywords={Analyse de malwares, Hachage sémantique, Apprentissage auto-superv
 \input{src/methodologie/learning}
 \input{src/methodologie/package}
 \input{src/experimentations/toc}
-\input{src/resultats/toc}
+%\input{src/resultats/toc}
 \input{src/revue}
 \input{src/conclusion}
 

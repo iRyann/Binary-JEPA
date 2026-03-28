@@ -1,0 +1,53 @@
+\subsection{Impact de l'EMA sur l'apprentissage}\label{sub:Impact de l'EMA sur l'apprentissage} % (fold)
+
+La Figure~\ref{fig:ema_dynamics} illustre comment le momentum $m$
+contrôle la vitesse de convergence du professeur vers l'élève.
+ 
+% ------------------------------------------------------------------
+% Figure 4 : dynamique EMA selon m
+% ------------------------------------------------------------------
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.72\linewidth, height=4.8cm,
+  xlabel={Itération $t$},
+  ylabel={$\|\xi_t - \theta_t\|_2$ (normalisé)},
+  xmin=0, xmax=300,
+  ymin=0, ymax=1.05,
+  xtick={0,50,100,150,200,250,300},
+  ytick={0,0.25,0.5,0.75,1.0},
+  grid=both, grid style={line width=0.3pt, draw=gray!25},
+  axis background/.style={fill=gray!4},
+  legend style={at={(0.97,0.97)}, anchor=north east,
+                font=\tiny, fill=white, draw=gray!40},
+  label style={font=\small},
+  tick label style={font=\tiny},
+]
+% m = 0.90
+\addplot[colMask, thick, smooth] coordinates {
+  (0,1)(10,0.65)(20,0.42)(40,0.18)(60,0.08)(100,0.02)(200,0.001)(300,0)
+};
+\addlegendentry{$m=0{,}90$}
+% m = 0.996 (notre valeur)
+\addplot[colCtx, thick, smooth, dashed] coordinates {
+  (0,1)(20,0.92)(50,0.82)(100,0.67)(150,0.55)(200,0.44)(300,0.29)
+};
+\addlegendentry{$m=0{,}996$ (utilisé)}
+% m = 0.9999
+\addplot[colTgt, thick, smooth, dotted] coordinates {
+  (0,1)(50,0.995)(100,0.99)(200,0.98)(300,0.97)
+};
+\addlegendentry{$m=0{,}9999$}
+\end{axis}
+\end{tikzpicture}
+\caption{Évolution schématique de la distance $\|\xi_t -
+  \theta_t\|_2$ pour différentes valeurs de momentum $m$.
+  Un $m$ trop faible (0{,}90) rend le professeur trop réactif et
+  instabilise les cibles. Un $m$ trop élevé (0{,}9999) ralentit
+  excessivement la convergence. La valeur $m=0{,}996$ offre le
+  meilleur compromis pour notre échelle d'entraînement.}
+\label{fig:ema_dynamics}
+\end{figure}
+ 
+% subsection Impact de l'EMA sur l'apprentissage (end)
