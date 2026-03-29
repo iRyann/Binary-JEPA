@@ -15,70 +15,7 @@ Binary-JEPA est une architecture de **hachage sémantique de binaires ELF64** fo
 
 ### Pipeline
 
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 140" font-family="monospace" font-size="12">
-  <!-- fond -->
-  <rect width="860" height="140" fill="#0d1117" rx="8"/>
-
-  <!-- étape 1 : ELF -->
-  <rect x="20" y="30" width="120" height="80" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1.2"/>
-  <text x="80" y="60" text-anchor="middle" fill="#8b949e" font-size="10">Binaire</text>
-  <text x="80" y="76" text-anchor="middle" fill="#e6edf3" font-weight="bold">ELF64</text>
-  <text x="80" y="94" text-anchor="middle" fill="#8b949e" font-size="10">x86 · ARM</text>
-
-  <!-- flèche 1 -->
-  <line x1="140" y1="70" x2="175" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="157" y="63" text-anchor="middle" fill="#8b949e" font-size="9">angr</text>
-
-  <!-- étape 2 : VEX IR -->
-  <rect x="175" y="30" width="130" height="80" rx="6" fill="#161b22" stroke="#3fb950" stroke-width="1.2"/>
-  <text x="240" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Lifting +</text>
-  <text x="240" y="71" text-anchor="middle" fill="#3fb950" font-weight="bold">VEX IR</text>
-  <text x="240" y="87" text-anchor="middle" fill="#8b949e" font-size="10">canonicalisation Φ</text>
-  <text x="240" y="100" text-anchor="middle" fill="#6e7681" font-size="9">371 tokens</text>
-
-  <!-- flèche 2 -->
-  <line x1="305" y1="70" x2="340" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="322" y="63" text-anchor="middle" fill="#8b949e" font-size="9">DFS</text>
-
-  <!-- étape 3 : Bag-of-Paths -->
-  <rect x="340" y="30" width="140" height="80" rx="6" fill="#161b22" stroke="#58a6ff" stroke-width="1.2"/>
-  <text x="410" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Bag-of-Paths</text>
-  <text x="410" y="71" text-anchor="middle" fill="#58a6ff" font-weight="bold">séquences 1D</text>
-  <text x="410" y="87" text-anchor="middle" fill="#8b949e" font-size="10">N ≤ 500 chemins</text>
-  <text x="410" y="100" text-anchor="middle" fill="#6e7681" font-size="9">L ≤ 50 blocs</text>
-
-  <!-- flèche 3 -->
-  <line x1="480" y1="70" x2="515" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="497" y="63" text-anchor="middle" fill="#8b949e" font-size="9">I-JEPA</text>
-
-  <!-- étape 4 : encodeur -->
-  <rect x="515" y="30" width="150" height="80" rx="6" fill="#161b22" stroke="#ffa657" stroke-width="1.2"/>
-  <text x="590" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Conv1DEncoder</text>
-  <text x="590" y="71" text-anchor="middle" fill="#ffa657" font-weight="bold">f_θ  (15 Mo)</text>
-  <text x="590" y="87" text-anchor="middle" fill="#8b949e" font-size="10">e=128 · h=256 · d=256</text>
-  <text x="590" y="100" text-anchor="middle" fill="#6e7681" font-size="9">k = 5 / 5 / 3</text>
-
-  <!-- flèche 4 -->
-  <line x1="665" y1="70" x2="700" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="682" y="63" text-anchor="middle" fill="#8b949e" font-size="9">ℓ₂</text>
-
-  <!-- étape 5 : embedding -->
-  <rect x="700" y="30" width="140" height="80" rx="6" fill="#161b22" stroke="#d2a8ff" stroke-width="1.2"/>
-  <text x="770" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Embedding</text>
-  <text x="770" y="71" text-anchor="middle" fill="#d2a8ff" font-weight="bold">ℝ²⁵⁶</text>
-  <text x="770" y="87" text-anchor="middle" fill="#8b949e" font-size="10">normalisé</text>
-
-  <!-- marqueur flèche -->
-  <defs>
-    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#30363d"/>
-    </marker>
-  </defs>
-</svg>
-```
-
----
+![pipeline](assets/pipeline.svg)
 
 ## Structure du dépôt
 
@@ -164,7 +101,8 @@ C × O = {gcc, clang} × {-O0, -O1, -O2, -O3, -Os}
 | Longueur médiane / chemin         | 263 tokens       |
 | Tokens distincts médians / chemin | 16               |
 
-> **Note** : le taux de duplicats élevé (74.6 %) est attendu — deux compilations d'une même fonction partagent un long préfixe commun dans le CFG. La divergence significative n'apparaît généralement qu'après la position ~50. L'outil de visualisation gère cela via `_trim_common_prefix()`.
+> [!Note]
+> Le taux de duplicats élevé (74.6 %) n'est pas surprenant — deux compilations d'une même fonction partagent un long préfixe commun dans le CFG. La divergence significative n'apparaît généralement qu'après la position ~50. L'outil de visualisation gère cela via `_trim_common_prefix()`. Toutefois, un raffinement du langage intermédiare est prévu, et une densification du dataset d'entraînement aussi.
 
 ---
 
@@ -294,83 +232,7 @@ Le checkpoint de référence (`latest.pt`) correspond au run `random-token`, ép
 
 ## Architecture I-JEPA 1D
 
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" font-family="monospace" font-size="11">
-  <rect width="700" height="320" fill="#0d1117" rx="8"/>
-
-  <!-- Séquence masquée -->
-  <text x="160" y="28" text-anchor="middle" fill="#8b949e" font-size="10">séquence masquée x̃</text>
-  <rect x="60"  y="35" width="40" height="26" rx="3" fill="#1f6feb33" stroke="#58a6ff" stroke-width="1"/>
-  <text x="80"  y="52" text-anchor="middle" fill="#58a6ff" font-size="9">VEX</text>
-  <rect x="105" y="35" width="40" height="26" rx="3" fill="#1f6feb33" stroke="#58a6ff" stroke-width="1"/>
-  <text x="125" y="52" text-anchor="middle" fill="#58a6ff" font-size="9">OP</text>
-  <rect x="150" y="35" width="40" height="26" rx="3" fill="#da363333" stroke="#f78166" stroke-width="1"/>
-  <text x="170" y="52" text-anchor="middle" fill="#f78166" font-size="9">[M]</text>
-  <rect x="195" y="35" width="40" height="26" rx="3" fill="#da363333" stroke="#f78166" stroke-width="1"/>
-  <text x="215" y="52" text-anchor="middle" fill="#f78166" font-size="9">[M]</text>
-  <rect x="240" y="35" width="40" height="26" rx="3" fill="#30363d55" stroke="#6e7681" stroke-width="1"/>
-  <text x="260" y="52" text-anchor="middle" fill="#6e7681" font-size="9">[P]</text>
-
-  <!-- Séquence intacte -->
-  <text x="510" y="28" text-anchor="middle" fill="#8b949e" font-size="10">séquence intacte x</text>
-  <rect x="410" y="35" width="40" height="26" rx="3" fill="#1f6feb33" stroke="#58a6ff" stroke-width="1"/>
-  <text x="430" y="52" text-anchor="middle" fill="#58a6ff" font-size="9">VEX</text>
-  <rect x="455" y="35" width="40" height="26" rx="3" fill="#1f6feb33" stroke="#58a6ff" stroke-width="1"/>
-  <text x="475" y="52" text-anchor="middle" fill="#58a6ff" font-size="9">OP</text>
-  <rect x="500" y="35" width="40" height="26" rx="3" fill="#3fb95033" stroke="#3fb950" stroke-width="1"/>
-  <text x="520" y="52" text-anchor="middle" fill="#3fb950" font-size="9">API</text>
-  <rect x="545" y="35" width="40" height="26" rx="3" fill="#3fb95033" stroke="#3fb950" stroke-width="1"/>
-  <text x="565" y="52" text-anchor="middle" fill="#3fb950" font-size="9">JK</text>
-  <rect x="590" y="35" width="40" height="26" rx="3" fill="#30363d55" stroke="#6e7681" stroke-width="1"/>
-  <text x="610" y="52" text-anchor="middle" fill="#6e7681" font-size="9">[P]</text>
-
-  <!-- Encodeur contexte -->
-  <rect x="80" y="105" width="200" height="60" rx="6" fill="#1f6feb1a" stroke="#58a6ff" stroke-width="1.5"/>
-  <text x="180" y="131" text-anchor="middle" fill="#58a6ff" font-weight="bold">Encodeur Contexte  fθ</text>
-  <text x="180" y="150" text-anchor="middle" fill="#8b949e" font-size="10">Conv1D k=5/5/3 · GELU</text>
-
-  <!-- Encodeur cible -->
-  <rect x="420" y="105" width="200" height="60" rx="6" fill="#3fb9501a" stroke="#3fb950" stroke-width="1.5"/>
-  <text x="520" y="131" text-anchor="middle" fill="#3fb950" font-weight="bold">Encodeur Cible  fξ</text>
-  <text x="520" y="150" text-anchor="middle" fill="#8b949e" font-size="10">EMA  ξ ← m·ξ + (1-m)·θ</text>
-
-  <!-- EMA flèche -->
-  <path d="M280,125 C350,95 370,95 420,125" fill="none" stroke="#3fb950" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#ga)"/>
-
-  <!-- Représentations -->
-  <rect x="100" y="195" width="160" height="30" rx="4" fill="#1f6feb0d" stroke="#58a6ff" stroke-width="1"/>
-  <text x="180" y="215" text-anchor="middle" fill="#58a6ff" font-size="10">Z_ctx ∈ ℝ^(L×256)</text>
-
-  <rect x="440" y="195" width="160" height="30" rx="4" fill="#3fb9500d" stroke="#3fb950" stroke-width="1"/>
-  <text x="520" y="215" text-anchor="middle" fill="#3fb950" font-size="10">Z_tgt ∈ ℝ^(L×256)</text>
-
-  <!-- stop-grad -->
-  <line x1="520" y1="195" x2="520" y2="188" stroke="#3fb950" stroke-dasharray="3,2" stroke-width="1"/>
-  <text x="540" y="187" fill="#3fb95099" font-size="9">stop-grad</text>
-
-  <!-- Prédicteur -->
-  <rect x="260" y="255" width="180" height="50" rx="6" fill="#ffa6571a" stroke="#ffa657" stroke-width="1.5"/>
-  <text x="350" y="278" text-anchor="middle" fill="#ffa657" font-weight="bold">Prédicteur  gϕ</text>
-  <text x="350" y="295" text-anchor="middle" fill="#8b949e" font-size="10">Linear(256→512→256) · GELU</text>
-
-  <!-- Flèches verticales -->
-  <line x1="160" y1="61"  x2="160" y2="105" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#ga)"/>
-  <line x1="520" y1="61"  x2="520" y2="105" stroke="#3fb950" stroke-width="1.2" marker-end="url(#ga)"/>
-  <line x1="180" y1="165" x2="180" y2="195" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#ga)"/>
-  <line x1="520" y1="165" x2="520" y2="195" stroke="#3fb950" stroke-width="1.2" marker-end="url(#ga)"/>
-  <line x1="180" y1="225" x2="300" y2="255" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#ga)"/>
-  <line x1="520" y1="225" x2="400" y2="255" stroke="#3fb950" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#ga)"/>
-
-  <!-- Huber Loss label -->
-  <text x="350" y="318" text-anchor="middle" fill="#d2a8ff" font-size="10">Huber Loss sur M_pred uniquement</text>
-
-  <defs>
-    <marker id="ga" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#30363d"/>
-    </marker>
-  </defs>
-</svg>
-```
+![ijepa](assets/ijepa.svg)
 
 ---
 

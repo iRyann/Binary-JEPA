@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 140" font-family="monospace" font-size="12">
+  <!-- fond -->
+  <rect width="860" height="140" fill="#0d1117" rx="8"/>
+
+  <!-- étape 1 : ELF -->
+  <rect x="20" y="30" width="120" height="80" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1.2"/>
+  <text x="80" y="60" text-anchor="middle" fill="#8b949e" font-size="10">Binaire</text>
+  <text x="80" y="76" text-anchor="middle" fill="#e6edf3" font-weight="bold">ELF64</text>
+  <text x="80" y="94" text-anchor="middle" fill="#8b949e" font-size="10">x86 · ARM</text>
+
+  <!-- flèche 1 -->
+  <line x1="140" y1="70" x2="175" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="157" y="63" text-anchor="middle" fill="#8b949e" font-size="9">angr</text>
+
+  <!-- étape 2 : VEX IR -->
+  <rect x="175" y="30" width="130" height="80" rx="6" fill="#161b22" stroke="#3fb950" stroke-width="1.2"/>
+  <text x="240" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Lifting +</text>
+  <text x="240" y="71" text-anchor="middle" fill="#3fb950" font-weight="bold">VEX IR</text>
+  <text x="240" y="87" text-anchor="middle" fill="#8b949e" font-size="10">canonicalisation Φ</text>
+  <text x="240" y="100" text-anchor="middle" fill="#6e7681" font-size="9">371 tokens</text>
+
+  <!-- flèche 2 -->
+  <line x1="305" y1="70" x2="340" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="322" y="63" text-anchor="middle" fill="#8b949e" font-size="9">DFS</text>
+
+  <!-- étape 3 : Bag-of-Paths -->
+  <rect x="340" y="30" width="140" height="80" rx="6" fill="#161b22" stroke="#58a6ff" stroke-width="1.2"/>
+  <text x="410" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Bag-of-Paths</text>
+  <text x="410" y="71" text-anchor="middle" fill="#58a6ff" font-weight="bold">séquences 1D</text>
+  <text x="410" y="87" text-anchor="middle" fill="#8b949e" font-size="10">N ≤ 500 chemins</text>
+  <text x="410" y="100" text-anchor="middle" fill="#6e7681" font-size="9">L ≤ 50 blocs</text>
+
+  <!-- flèche 3 -->
+  <line x1="480" y1="70" x2="515" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="497" y="63" text-anchor="middle" fill="#8b949e" font-size="9">I-JEPA</text>
+
+  <!-- étape 4 : encodeur -->
+  <rect x="515" y="30" width="150" height="80" rx="6" fill="#161b22" stroke="#ffa657" stroke-width="1.2"/>
+  <text x="590" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Conv1DEncoder</text>
+  <text x="590" y="71" text-anchor="middle" fill="#ffa657" font-weight="bold">f_θ  (15 Mo)</text>
+  <text x="590" y="87" text-anchor="middle" fill="#8b949e" font-size="10">e=128 · h=256 · d=256</text>
+  <text x="590" y="100" text-anchor="middle" fill="#6e7681" font-size="9">k = 5 / 5 / 3</text>
+
+  <!-- flèche 4 -->
+  <line x1="665" y1="70" x2="700" y2="70" stroke="#30363d" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="682" y="63" text-anchor="middle" fill="#8b949e" font-size="9">ℓ₂</text>
+
+  <!-- étape 5 : embedding -->
+  <rect x="700" y="30" width="140" height="80" rx="6" fill="#161b22" stroke="#d2a8ff" stroke-width="1.2"/>
+  <text x="770" y="55" text-anchor="middle" fill="#8b949e" font-size="10">Embedding</text>
+  <text x="770" y="71" text-anchor="middle" fill="#d2a8ff" font-weight="bold">ℝ²⁵⁶</text>
+  <text x="770" y="87" text-anchor="middle" fill="#8b949e" font-size="10">normalisé</text>
+
+  <!-- marqueur flèche -->
+  <defs>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#30363d"/>
+    </marker>
+  </defs>
+</svg>
+
