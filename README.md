@@ -3,8 +3,7 @@
 > **Hachage Sémantique de Binaires par Prédiction Latente Auto-Supervisée sur Bag-of-Paths VEX**  
 > Working Paper — ING3 Cybersécurité, CY Tech, 2026
 
-[![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-rubenanko%2Fbinary--jepa-yellow)?style=for-the-badge](https://huggingface.co/rubenanko/binary-jepa)
-[![Python](https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge)](https://www.python.org/)
+[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-lg.svg)](https://huggingface.co/rubenanko/binary-jepa)
 
 ---
 
