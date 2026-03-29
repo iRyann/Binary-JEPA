@@ -1,7 +1,8 @@
 \documentclass{article}
 
 \usepackage{arxiv}
-
+\usepackage[french]{babel}
+\usepackage{datetime}
 \usepackage[utf8]{inputenc} % allow utf-8 input
 \usepackage[T1]{fontenc}    % use 8-bit T1 fonts
 \usepackage{hyperref}       % hyperlinks
@@ -68,11 +69,14 @@
     backgroundcolor=\color{gray!10},
 }
 \usepackage{minted}
+%\usepackage{lmodern}
 %----------- Paper Config ---------
-\title{Hachage Sémantique de Binaires par Apprentissage Auto-Supervisé : \emph{Binary-JEPA}, Une Approche JEPA sur Bag-of-Paths VEX}
+\title{Binary-JEPA : Hachage Sémantique de Binaires par Prédiction
+Latente Auto-Supervisée sur Bag-of-Paths VEX}
 
 % Here you can change the date presented in the paper title
-\date{\today}
+\date{\vspace*{-2em}
+\today}
 
 \newif\ifuniqueAffiliation
 % Comment to use multiple affiliations variant of author block 
@@ -91,6 +95,10 @@
 	CY Tech\\
 	64000 Pau, France \\
 	\texttt{ruben.pentteng-ngongang@etu.cyu.fr} \\
+  \AND
+  \repo
+  \And 
+  \data
 	}
 \else
 % Multiple affiliations variant of author block
@@ -137,7 +145,16 @@ pdfkeywords={Analyse de malwares, Hachage sémantique, Apprentissage auto-superv
 \tcbset{colback=red!5!white,colframe=red!75!black,fonttitle=\bfseries}
 
 %############## Corps du rapport ##############
+
+\begin{tcolorbox}[
+    colback=gray!8,
+    colframe=gray!30,
+    boxrule=0pt,
+    arc=4pt,
+    left=10pt, right=10pt, top=6pt, bottom=6pt,
+]
 \input{src/abstract}
+\end{tcolorbox}
 \newpage
 \input{src/introduction}  
 \input{src/sota}

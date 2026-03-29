@@ -1,15 +1,36 @@
 \begin{abstract}
-  Face à la prolifération des malwares polymorphes, les signatures cryptographiques classiques telles que \gls{md5} ou \gls{sha256} sont obsolètes : un seul bit modifié suffit à empêcher la détection par comparaison exacte. 
-  Notre projet vise à développer un \gls{semantic_hashing} de fichiers binaires \gls{elf64}. 
-  Ce faisant, nous cherchons à produire une signature stable face à l'obfuscation, par le biais d'une architecture \gls{jepa} adaptée au traitement de séquences d'instructions. 
-    
-  À cette fin, nous isolons préalablement la sémantique du programme en traduisant (\gls{lifting}) les instructions assembleur vers la représentation intermédiaire \gls{vexir}. 
-  Cette étape s'accompagne d'une modélisation topologique en \gls{bagofpaths} permettant de pondérer l'acquis informationnel et de filtrer le bruit inhérent au mode opératoire des programmes (appels à des librairies tierces, polymorphisme compilatoire, injection de code mort). 
-    
-  Contrairement aux réseaux de graphes (\glspl{gnn}) limités par leur forte complexité temporelle, ou aux modèles génératifs de langage (\glspl{llm}/\gls{bert}) se perdant dans la prédiction exacte du bruit structurel, notre architecture force l'apprentissage par prédiction dans l'espace latent. 
-  Ainsi prétraité, le code est ingéré par un encodeur convolutif 1D entraîné de manière auto-supervisée afin d'en extraire une représentation hautement abstraite. 
-  Enfin, l'ensemble s'inscrit dans un pipeline d'ingénierie \gls{mlops} rigoureux, garantissant une optimisation matérielle de l'entraînement et intégrant un suivi précis de l'empreinte carbone.
+  \vspace*{1em}
+  Face à la prolifération des malwares polymorphes, les signatures cryptographiques
+classiques telles que MD5 ou SHA-256 sont structurellement obsolètes : un seul bit
+modifié suffit à invalider toute comparaison exacte.
+Ce rapport technique présente
+\textbf{Binary-JEPA}, une architecture de hachage sémantique de binaires ELF64 fondée
+sur l'apprentissage auto-supervisé, conçue pour produire une empreinte stable face aux
+transformations compilatoires et, à terme, aux techniques d'obfuscation modernes.
+
+Notre approche repose sur trois contributions articulées. Premièrement, un pipeline
+d'extraction statique traduisant le code binaire en représentation intermédiaire VEX IR
+via \texttt{angr}, puis modélisant la topologie du programme sous forme d'un
+\textit{Bag-of-Paths} — un multiensemble de chemins d'exécution canonicalisés en
+371~tokens abstraits par une projection sémantique stricte~$\Phi$, s'affranchissant des
+artefacts compilatoires. Deuxièmement, une adaptation unidimensionnelle du cadre
+I-JEPA~\cite{assran2023self} à l'analyse de séquences symboliques : un encodeur
+convolutif léger est entraîné à prédire la représentation latente de positions masquées
+plutôt qu'à reconstruire le token exact, forçant l'émergence d'une sémantique
+comportementale sans supervision. Troisièmement, un paquet Python distribuable
+(\texttt{elf64ctx}) encapsulant le pipeline complet avec téléchargement automatique
+des artefacts depuis HuggingFace Hub.
+
+Une preuve de concept qualitative dénote deux propriétés
+attendues de l'espace latent : une invariance partielle à la compilation pour les paires
+positives, et une séparabilité inter-programmes pour les
+paires négatives, avec un effet super-additif lorsque les deux sources de divergence se cumulent. L'analyse de trois runs
+d'entraînement révèle que la stratégie de masquage constitue le facteur de convergence
+dominant : seul le masquage aléatoire produit un plateau stable à
+$\mathcal{L} \approx 0.030$ sur 10~époques.
+
+Ce rapport constitue un \textit{working paper} : les hypothèses de résilience face aux
+obfuscations restent à valider empiriquement, et l'évaluation quantitative fait l'objet des travaux en cours. 
 \end{abstract}
 
-
-\keywords{Malware Analysis \and Semantic Hashing \and Self-Supervised Learning \and \gls{vexir} \and \gls{bagofpaths} \and \gls{jepa} \and \gls{mlops}}
+\keywords{Malware Analysis \and Semantic Hashing \and Self-Supervised Learning \and VEX IR \and \gls{bagofpaths} \and \gls{jepa}}
