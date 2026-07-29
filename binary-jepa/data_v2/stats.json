@@ -1,0 +1,154 @@
+{
+  "config": {
+    "fold_width": true,
+    "run_cap": 2,
+    "keep_abihint": false,
+    "drop_set": [
+      "VEX_Ist_AbiHint",
+      "VEX_Ist_Dirty",
+      "VEX_Ist_MBE",
+      "VEX_Ist_PutI",
+      "VEX_WrTmp"
+    ]
+  },
+  "n_files": 1000,
+  "n_paths_in": 950474,
+  "n_paths_out": 950474,
+  "n_paths_dropped_empty": 0,
+  "n_tokens_in": 318252815,
+  "n_tokens_out": 182384380,
+  "summary": {
+    "entropy_in": 3.528,
+    "entropy_out": 3.199,
+    "top5_pct_in": 67.8,
+    "top5_pct_out": 73.1,
+    "n_distinct_tokens_out": 410,
+    "median_len_in": 263,
+    "median_len_out": 155,
+    "p99_len_out": 734,
+    "max_len_out": 12056,
+    "token_reduction_pct": 42.7
+  },
+  "top_tokens_out": [
+    [
+      "VEX_REG_WRITE",
+      59555314
+    ],
+    [
+      "VEX_REG_READ",
+      27689695
+    ],
+    [
+      "VEX_OP_ADD",
+      20565957
+    ],
+    [
+      "VEX_LOAD",
+      13433327
+    ],
+    [
+      "JK_BORING",
+      12026373
+    ],
+    [
+      "VEX_STORE",
+      11338412
+    ],
+    [
+      "VEX_EXIT_COND",
+      10877103
+    ],
+    [
+      "VEX_OP_CMP.u1",
+      10493435
+    ],
+    [
+      "VEX_OP_SUB",
+      5573255
+    ],
+    [
+      "VEX_OP_AND",
+      3509373
+    ],
+    [
+      "VEX_OP_ADD.64",
+      995513
+    ],
+    [
+      "VEX_OP_ADD.u32",
+      532725
+    ],
+    [
+      "VEX_OP_AND.u32",
+      532062
+    ],
+    [
+      "VEX_OP_SHR",
+      490985
+    ],
+    [
+      "VEX_OP_MUL",
+      479790
+    ],
+    [
+      "JK_CALL",
+      466573
+    ],
+    [
+      "VEX_OP_SHL",
+      450879
+    ],
+    [
+      "VEX_OP_CMP",
+      437760
+    ],
+    [
+      "VEX_OP_SAR",
+      300240
+    ],
+    [
+      "VEX_OP_SUB.u32",
+      289701
+    ],
+    [
+      "VEX_OP_SHR.64",
+      271168
+    ],
+    [
+      "JK_RET",
+      206097
+    ],
+    [
+      "VEX_OP_XOR",
+      188958
+    ],
+    [
+      "VEX_OP_DIV.128",
+      142269
+    ],
+    [
+      "VEX_OP_OR3",
+      133365
+    ],
+    [
+      "VEX_OP_OR8",
+      119655
+    ],
+    [
+      "VEX_OP_SAR.64",
+      105104
+    ],
+    [
+      "VEX_OP_XOR.u32",
+      98321
+    ],
+    [
+      "VEX_OP_SHL.u32",
+      93996
+    ],
+    [
+      "VEX_OP_OR3.u32",
+      80782
+    ]
+  ]
+}

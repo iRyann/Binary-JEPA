@@ -1,0 +1,97 @@
+════════════════════════════════════════════════════════════
+ COMPARAISON v1 (brut) ↔ v2 (désucré — Stage A)
+════════════════════════════════════════════════════════════
+  Métrique                                       v1         v2
+  -------------------------------------- ---------- ----------
+  Tokens totaux                          318,252,815 182,384,380
+  Tokens structurels (%)                       33.5        0.0
+  Entropie Shannon (bits)                      3.53      3.199
+  Max théorique (bits)                        8.531      8.679
+  Top-5 tokens (%)                             67.8       73.1
+  Longueur médiane                              263        155
+  Longueur p99                                 1433        734
+  Longueur max                                22930      12056
+  Doublons globaux (%)                         74.6       74.9
+
+  Verdict Stage A :
+    [OK] Bruit structurel résiduel 0.0% (gate < 5%)
+    [..] Réduction de volume : -42.7% de tokens (chaque position restante est sémantique par construction)
+    [!!] Entropie 3.20 bits < v1 : attendu — la diversité des casts supprimés gonflait l'entropie v1 ;
+         le tri entre signal et diversité se fera sur la probe sémantique (Stage E), pas sur Shannon.
+
+════════════════════════════════════════════════════════════
+ DIAGNOSTIC DATASET BINARY-JEPA
+════════════════════════════════════════════════════════════
+
+── 1. VOLUME ──────────────────────────────────────────────
+  Fichiers JSONL      :      1,000
+  Chemins totaux      :    950,474
+  Chemins uniques     :    238,100  (25.1%)
+  Doublons            :    712,374  (74.9%)
+  Tokens totaux       : 182,384,380
+  Tokens distincts    :        410
+  Fonctions uniques   :    268,733
+
+── 2. DISTRIBUTION DES TOKENS ─────────────────────────────
+  Entropie de Shannon : 3.199 bits
+  Max théorique       : 8.679 bits
+  Utilisation vocab   : 36.9%
+
+  Top  5 tokens →  73.1% du corpus
+  Top 10 tokens →  96.0% du corpus
+  Top 20 tokens →  98.7% du corpus
+  Top 50 tokens →  99.9% du corpus
+
+  Token                                    count       %
+  ----------------------------------- ----------  ------
+  VEX_REG_WRITE                       59,555,314   32.7%
+  VEX_REG_READ                        27,689,695   15.2%
+  VEX_OP_ADD                          20,565,957   11.3%
+  VEX_LOAD                            13,433,327    7.4%
+  JK_BORING                           12,026,373    6.6%
+  VEX_STORE                           11,338,412    6.2%
+  VEX_EXIT_COND                       10,877,103    6.0%
+  VEX_OP_CMP.u1                       10,493,435    5.8%
+  VEX_OP_SUB                           5,573,255    3.1%
+  VEX_OP_AND                           3,509,373    1.9%
+  VEX_OP_ADD.64                          995,513    0.5%
+  VEX_OP_ADD.u32                         532,725    0.3%
+  VEX_OP_AND.u32                         532,062    0.3%
+  VEX_OP_SHR                             490,985    0.3%
+  VEX_OP_MUL                             479,790    0.3%
+  JK_CALL                                466,573    0.3%
+  VEX_OP_SHL                             450,879    0.2%
+  VEX_OP_CMP                             437,760    0.2%
+  VEX_OP_SAR                             300,240    0.2%
+  VEX_OP_SUB.u32                         289,701    0.2%
+
+── 3. SIGNAL / BRUIT (tokens structurels VEX) ─────────────
+  Tokens structurels (WrTmp, type-casts...) :   0.0%
+  Tokens sémantiques (ops, mem, flow...)    : 100.0%
+
+── 4. LONGUEUR DES CHEMINS ─────────────────────────────────
+  min    :        1
+  p10    :       13
+  p25    :       44
+  médiane:      155
+  p75    :      284
+  p90    :      415
+  p99    :      734
+  max    :    12056
+
+── 5. DIVERSITÉ PAR FONCTION ───────────────────────────────
+  Fonctions analysées              :  268,733
+  Ratio unique/total — p25 / p50 / p75 :
+    1.000  /  1.000  /  1.000
+  Fonctions quasi-100% doublons    :        0  (0.0%)
+  Fonctions < 50% diversité        :       52  (0.0%)
+  Fonctions 100% uniques           :  267,423  (99.5%)
+
+── 6. CARACTÉRISTIQUES DES SÉQUENCES ───────────────────────
+  Tokens distincts par chemin (médiane)  : 12
+  Tokens distincts par chemin (p75)      : 14
+  Sauts JK_* par chemin (médiane)        : 12
+  Sauts JK_* par chemin (p75)            : 20
+  Chemins sans aucun saut                : 37,077  (3.9%)
+
+════════════════════════════════════════════════════════════

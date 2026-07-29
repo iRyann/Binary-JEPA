@@ -1,0 +1,33 @@
+{
+  "dropped_boilerplate": 426162,
+  "kept": 24839,
+  "tokens_kept": 2241592,
+  "dropped_dup_or_nonrep": 499473,
+  "n_clusters": 23433,
+  "paths_in": 950474,
+  "unique_exact": 238100,
+  "exact_dups": 712374,
+  "split_train": 23593,
+  "split_val": 1246,
+  "clusters_multi_member": 1406,
+  "verification": {
+    "families_covered": 90,
+    "families_total": 100,
+    "families_lost": [
+      "dirname",
+      "hostid",
+      "link",
+      "logname",
+      "mknod",
+      "sha384sum",
+      "sync",
+      "true",
+      "unlink",
+      "whoami"
+    ],
+    "median_paths_per_family": 117,
+    "paths_in_multi_member_clusters": 2812,
+    "residual_near_dup_pct": 11.3,
+    "clusters_mixed_split": 0
+  }
+}
