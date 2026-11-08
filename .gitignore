@@ -242,3 +242,10 @@ elf-processing/external/dataGen/*.tar.xz
 # Private notes / scratch
 reports/plan.md
 reports/paper/temp
+
+# Generated datasets (regenerate via pipeline)
+/binary-jepa/data/
+/binary-jepa/encoded_dataset/
+/binary-jepa/data_v2/
+/binary-jepa/data_v3/
+*.elf
