@@ -283,6 +283,87 @@ Validation qualitative sur 12 binaires GNU Coreutils
 
 ---
 
+## Contribuer
+
+### Fichiers à ne jamais committer
+
+Le dépôt ne contient que le code, la configuration et le papier. Les éléments suivants restent **locaux** (ils sont dans `.gitignore`) :
+
+- **Secrets** : `credentials.json`, `.codecarbon.config` (clé API CodeCarbon), `.env`
+- **Datasets générés** : `binary-jepa/data/`, `binary-jepa/encoded_dataset/`, `binary-jepa/data_v2/`, `binary-jepa/data_v3/` — régénérables via la section [Entraînement](#entraînement)
+- **Sources tierces et builds** : `elf-processing/external/dataGen/coreutils-*` (téléchargé par `generate_data.sh`), binaires `*.elf`, `*.o`, checkpoints `*.pt`
+- **Config d'outils locaux** : `.vscode/`, `.claude/`, `CLAUDE.md`
+
+Avant chaque commit : `git status` puis `git diff --cached --stat` pour vérifier qu'aucun de ces fichiers n'est indexé.
+
+### Réécriture de l'historique (novembre 2026) — remettre son clone local d'aplomb
+
+L'historique Git a été **réécrit** (`git filter-repo`) pour en retirer les secrets, les datasets et les artefacts de build (dépôt : ~96 Mo → ~13 Mo). **Tous les hash de commit ont changé** sur `main` et `data-pipeline-v2`. Un clone antérieur est donc incompatible : un `git pull` ou un `git push` depuis l'ancien clone réintroduirait tout ce qui a été supprimé.
+
+**1. Mettre de côté le travail local non poussé** (à faire depuis l'ancien clone, *avant* toute autre manipulation) :
+
+```bash
+cd binary-jepa                      # ancien clone
+git fetch origin                    # récupère la nouvelle histoire (n'écrase rien)
+git status                          # commit ou stash des modifications en cours
+git log --oneline --branches --not --remotes=origin   # commits jamais poussés
+
+# Exporter ces commits en patchs, une branche à la fois :
+git format-patch <dernier-commit-poussé>..<ma-branche> -o ../patches-<ma-branche>/
+```
+
+Si `git log` ci-dessus n'affiche rien, il n'y a rien à sauvegarder.
+
+**2. Repartir d'un clone propre** (méthode recommandée) :
+
+```bash
+mv binary-jepa binary-jepa.old
+git clone git@gitlab.com:iRyann/binary-jepa.git
+cd binary-jepa
+
+# Récupérer les fichiers locaux non versionnés depuis l'ancien clone
+cp ../binary-jepa.old/credentials.json ../binary-jepa.old/.codecarbon.config . 2>/dev/null
+cp -r ../binary-jepa.old/binary-jepa/{data,encoded_dataset} binary-jepa/ 2>/dev/null
+cp -r ../binary-jepa.old/.venv . 2>/dev/null   # ou recréer le venv (voir Installation)
+```
+
+**3. Réappliquer le travail sauvegardé** :
+
+```bash
+git switch -c <ma-branche> origin/main
+git am ../patches-<ma-branche>/*.patch
+```
+
+En cas de conflit : `git am --show-current-patch`, résoudre, `git add`, puis `git am --continue`.
+
+**4. Vérifier, puis supprimer l'ancien clone** :
+
+```bash
+git log --oneline -5
+du -sh .git                          # quelques dizaines de Mo au plus
+rm -rf ../binary-jepa.old
+```
+
+<details>
+<summary>Alternative : nettoyer l'ancien clone sur place (sans re-cloner)</summary>
+
+```bash
+git fetch origin --prune
+git switch main && git reset --hard origin/main
+git switch data-pipeline-v2 && git reset --hard origin/data-pipeline-v2
+git branch -D <anciennes-branches-locales>     # toute branche non recréée depuis origin
+git reflog expire --expire=now --all
+git gc --prune=now --aggressive
+```
+
+`reset --hard` ne touche pas aux fichiers ignorés (datasets, secrets, venv) mais **écrase les modifications versionnées non commitées** : faire l'étape 1 avant.
+
+</details>
+
+**À ne pas faire** depuis l'ancien clone : `git pull` (avec ou sans `--rebase`), `git merge` d'une ancienne branche, ou `git push` / `git push --force` d'une branche issue de l'ancien historique. Ces commandes réintroduisent l'ancien historique.
+
+---
+
 ## Citation
 
 ```bibtex
