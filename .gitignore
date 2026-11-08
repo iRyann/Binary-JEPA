@@ -227,3 +227,18 @@ __marimo__/
 **/log.csv
 **/training
 **/testing
+
+# Secrets / local config (never publish)
+credentials.json
+.codecarbon.config
+.claude/
+.vscode/
+CLAUDE.md
+
+# Third-party sources & build artifacts (fetched by generate_data.sh)
+elf-processing/external/dataGen/coreutils-*/
+elf-processing/external/dataGen/*.tar.xz
+
+# Private notes / scratch
+reports/plan.md
+reports/paper/temp
